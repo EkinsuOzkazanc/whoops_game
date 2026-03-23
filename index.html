@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>WHOOPS!</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;700&display=swap');
+
+:root {
+  --bg:#0c0b14; --surface:#16142a; --surface2:#1e1c35;
+  --accent:#ff6b35; --gold:#ffd166; --mint:#06d6a0;
+  --rose:#ef476f; --sky:#4cc9f0; --purple:#9b5de5;
+  --text:#fffffe; --muted:#8a8aaa; --border:#2a2845;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
+
+/* SCREENS */
+.screen{display:none;width:100vw;height:100vh;position:absolute;top:0;left:0;flex-direction:column;}
+.screen.active{display:flex;}
+
+/* TOP BAR */
+.top-bar{display:flex;align-items:center;gap:10px;padding:0 16px;height:50px;min-height:50px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;overflow:hidden;}
+.game-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.08em;color:var(--accent);white-space:nowrap;flex-shrink:0;}
+.score-strip{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;flex:1;scrollbar-width:none;}
+.score-strip::-webkit-scrollbar{display:none;}
+.score-chip{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:500;white-space:nowrap;flex-shrink:0;transition:border-color .3s;}
+.score-chip.leading{border-color:var(--gold);}
+.chip-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.chip-score{font-family:'Bebas Neue',sans-serif;font-size:15px;line-height:1;}
+
+/* SETUP */
+#setup{background:radial-gradient(ellipse at 50% -10%,#2a1f3d 0%,var(--bg) 65%);}
+.setup-scroll{flex:1;overflow-y:auto;display:flex;flex-direction:column;align-items:center;padding:18px 14px 28px;gap:14px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:clamp(48px,9vw,88px);letter-spacing:.06em;background:linear-gradient(135deg,var(--accent) 0%,var(--gold) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;flex-shrink:0;}
+.tagline{color:var(--muted);font-size:10px;letter-spacing:.22em;text-transform:uppercase;margin-top:-10px;}
+.setup-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 22px;width:min(500px,100%);display:flex;flex-direction:column;gap:16px;}
+.section-label{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+.team-row{display:flex;gap:7px;align-items:center;}
+.team-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.team-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;transition:border-color .2s;}
+.team-input:focus{border-color:var(--accent);}
+.teams-grid{display:flex;flex-direction:column;gap:6px;}
+
+/* ACTION PICKER */
+.action-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:7px;}
+.action-chip{display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);cursor:pointer;font-size:12px;font-weight:500;transition:all .18s;color:var(--muted);position:relative;}
+.action-chip .ac-icon{font-size:17px;flex-shrink:0;}
+.action-chip:hover{border-color:var(--accent);color:var(--text);}
+.action-chip.selected{border-color:var(--accent);background:rgba(255,107,53,.13);color:var(--text);}
+
+.action-chip .check-mark{position:absolute;top:4px;right:6px;font-size:10px;display:none;}
+.action-chip.selected .check-mark{display:block;color:var(--mint);}
+.ac-label-input{pointer-events:none;}
+.action-chip:hover .ac-label-input,.action-chip.selected .ac-label-input{pointer-events:auto;}
+.action-count-line{font-size:11px;color:var(--muted);}
+.action-count-line em{color:var(--gold);font-style:normal;font-weight:700;}
+
+/* Q ENTRY */
+.q-mode-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.q-mode-btn{padding:10px;border-radius:9px;border:2px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .2s;text-align:center;}
+.q-mode-btn:hover{border-color:var(--accent);color:var(--text);}
+.q-mode-btn.selected{border-color:var(--accent);background:rgba(255,107,53,.12);color:var(--accent);}
+.q-mode-btn .qmn{font-size:14px;font-weight:700;display:block;}
+.q-mode-btn .qmd{font-size:10px;margin-top:2px;display:block;opacity:.7;}
+
+/* Manual Q list */
+.manual-q-list{display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;padding-right:2px;}
+.mq-row{display:flex;gap:5px;align-items:center;}
+.mq-num{font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--border);width:20px;text-align:right;flex-shrink:0;}
+.mq-q{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;outline:none;}
+.mq-q:focus{border-color:var(--accent);}
+.mq-a{width:90px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:11px;outline:none;}
+.mq-a::placeholder{color:rgba(138,138,170,.35);}
+.mq-a:focus{border-color:var(--mint);}
+
+/* CSV */
+.csv-zone{border:2px dashed var(--border);border-radius:9px;padding:12px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;position:relative;}
+.csv-zone:hover{border-color:var(--accent);background:rgba(255,107,53,.04);}
+.csv-zone.loaded{border-color:var(--mint);border-style:solid;background:rgba(6,214,160,.05);}
+.csv-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.csv-order-row{display:flex;gap:7px;margin-top:7px;}
+.order-btn{flex:1;padding:6px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:11px;cursor:pointer;transition:all .2s;}
+.order-btn.selected{border-color:var(--mint);color:var(--mint);background:rgba(6,214,160,.08);}
+
+/* DART MODE */
+.mode-toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.mode-btn{padding:10px;border-radius:9px;border:2px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .2s;text-align:center;}
+.mode-btn:hover{border-color:var(--accent);color:var(--text);}
+.mode-btn.selected{border-color:var(--accent);background:rgba(255,107,53,.12);color:var(--accent);}
+.mode-btn .mn{font-size:14px;font-weight:700;display:block;}
+.mode-btn .md{font-size:10px;margin-top:2px;display:block;opacity:.7;}
+
+.start-btn{background:linear-gradient(135deg,var(--accent),#ff8c5a);color:white;border:none;border-radius:10px;padding:14px;font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.1em;cursor:pointer;transition:transform .15s,box-shadow .15s;box-shadow:0 4px 18px rgba(255,107,53,.35);}
+.start-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(255,107,53,.45);}
+
+/* QUESTION SCREEN */
+#question{overflow:hidden;}
+.q-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 28px;gap:16px;overflow:hidden;min-height:0;}
+.q-meta{display:flex;align-items:center;gap:10px;}
+.q-badge{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--muted);}
+.q-nav-row{display:flex;align-items:center;gap:7px;}
+.q-nav-label{font-size:11px;color:var(--muted);white-space:nowrap;}
+textarea.q-textarea{width:100%;max-width:760px;background:transparent;border:none;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:clamp(22px,4vw,54px);text-align:center;resize:none;outline:none;line-height:1.2;caret-color:var(--accent);overflow-y:auto;max-height:140px;}
+textarea.q-textarea::placeholder{color:rgba(167,169,190,.2);}
+.answer-reveal-box{display:none;background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.25);border-radius:9px;padding:8px 18px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:clamp(14px,2.2vw,26px);color:var(--gold);max-width:700px;}
+.answer-reveal-box.shown{display:block;}
+.answer-pre{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-family:'DM Sans',sans-serif;margin-bottom:2px;}
+.timer-block{display:flex;align-items:center;gap:10px;}
+.timer-display{font-family:'Bebas Neue',sans-serif;font-size:62px;line-height:1;color:var(--gold);min-width:88px;text-align:center;transition:color .3s;}
+.timer-display.urgent{color:var(--rose);animation:pulse .5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.timer-btns{display:flex;flex-direction:column;gap:5px;}
+.timer-row1,.timer-row2{display:flex;gap:5px;align-items:center;}
+.t-btn{padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.t-btn:hover{border-color:var(--accent);color:var(--accent);}
+.t-btn.danger:hover{border-color:var(--rose);color:var(--rose);}
+.t-btn.go{background:var(--accent);border-color:var(--accent);color:white;}
+.t-btn.go:hover{background:#ff8c5a;}
+select.t-select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-family:'DM Sans',sans-serif;font-size:11px;cursor:pointer;outline:none;}
+.controls-bar{display:flex;gap:9px;padding:12px 20px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;justify-content:center;align-items:center;}
+.ctrl-btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;}
+.ctrl-btn:hover{border-color:var(--accent);color:var(--accent);}
+.ctrl-btn.primary{background:var(--accent);border-color:var(--accent);color:white;}
+.ctrl-btn.primary:hover{background:#ff8c5a;}
+.ctrl-btn.success{background:var(--mint);border-color:var(--mint);color:var(--bg);font-weight:700;}
+.ctrl-btn.danger{border-color:var(--rose);color:var(--rose);}
+.answer-check-row{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;}
+.check-btn{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;border:2px solid var(--border);background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;}
+.check-btn .c-dot{width:8px;height:8px;border-radius:50%;}
+.check-btn.correct{border-color:var(--mint);background:rgba(6,214,160,.1);color:var(--mint);}
+@keyframes correctPop{0%{transform:scale(1)}50%{transform:scale(1.1)}100%{transform:scale(1)}}
+.correct-pop{animation:correctPop .3s ease;}
+
+/* DART SCREEN */
+#dartboard{overflow:hidden;}
+.dart-area{flex:1;position:relative;overflow:hidden;min-height:0;background:var(--bg);}
+
+/* 4 quadrant divs — positioned by JS */
+.quad{position:absolute;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;cursor:crosshair;transition:filter .15s;}
+.quad:hover{filter:brightness(1.15);}
+.quad-label{font-family:'Bebas Neue',sans-serif;letter-spacing:.06em;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,0.9),0 0 20px rgba(0,0,0,0.7);text-align:center;pointer-events:none;line-height:1.1;}
+.quad-icon{pointer-events:none;line-height:1;}
+.quad-pts{font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,255,255,0.55);pointer-events:none;}
+/* The dart SVG sits centered */
+#dart-svg-wrap{position:absolute;transform:translate(-50%,-50%);background:transparent;overflow:visible;z-index:5;}
+#dart-svg{display:block;cursor:crosshair;}
+
+/* Cover */
+#dart-cover{position:absolute;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;z-index:20;background:radial-gradient(circle,#2a1f3d 40%,#16102a 100%);transform:translate(-50%,-50%);transition:none;}
+#dart-cover.hidden{opacity:0;transform:translate(-50%,-50%) scale(1.05);pointer-events:none;}
+#dart-cover.revealing{transition:opacity .4s,transform .4s;}
+#dart-cover .cicon{font-size:36px;}
+#dart-cover .clabel{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:.12em;color:var(--muted);text-align:center;padding:0 12px;}
+
+/* Result popup */
+#result-popup{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.7);background:var(--surface);border:2px solid var(--accent);border-radius:16px;padding:20px 32px;text-align:center;z-index:40;display:none;flex-direction:column;gap:5px;min-width:190px;box-shadow:0 20px 60px rgba(0,0,0,.7);animation:popIn .3s cubic-bezier(.175,.885,.32,1.275) forwards;}
+#result-popup.show{display:flex;}
+@keyframes popIn{from{transform:translate(-50%,-50%) scale(.7);opacity:0;}to{transform:translate(-50%,-50%) scale(1);opacity:1;}}
+.rp-team{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);}
+.rp-value{font-family:'Bebas Neue',sans-serif;font-size:52px;line-height:1;color:var(--gold);}
+.rp-value.forfeit{color:var(--rose);font-size:30px;line-height:1.2;}
+.rp-label{font-size:11px;color:var(--muted);}
+.rp-who{font-size:11px;color:var(--sky);font-style:italic;margin-top:2px;}
+
+.throw-indicator{font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;flex-shrink:0;}
+.throw-indicator strong{color:var(--text);}
+.dart-bottom{padding:11px 20px;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:12px;flex-shrink:0;position:relative;z-index:2;}
+
+/* Blind mode lock */
+body.blind-mode .dart-bottom,body.blind-mode .top-bar{pointer-events:none;opacity:.15;}
+
+/* Blind instruction */
+#blind-inst{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:50;pointer-events:none;display:none;}
+#blind-inst.active{display:block;}
+#blind-inst .bi-banner{position:absolute;bottom:0;left:0;right:0;text-align:center;padding:18px;background:linear-gradient(to top,rgba(0,0,0,.9),transparent);}
+#blind-inst .bi-text{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.12em;color:var(--gold);animation:glow 1.5s ease-in-out infinite;}
+@keyframes glow{0%,100%{text-shadow:0 0 8px rgba(255,209,102,.3);}50%{text-shadow:0 0 28px rgba(255,209,102,.9);}}
+
+/* LEADERBOARD */
+#leaderboard{background:radial-gradient(ellipse at 50% -5%,#2a1f3d 0%,var(--bg) 60%);}
+.lb-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px;gap:20px;overflow:hidden;}
+.lb-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(36px,7vw,70px);letter-spacing:.08em;background:linear-gradient(135deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;}
+.lb-list{display:flex;flex-direction:column;gap:10px;width:min(420px,100%);}
+.lb-row{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 18px;position:relative;overflow:hidden;transition:transform .3s;}
+.lb-row.rank-1{border-color:var(--gold);box-shadow:0 0 24px rgba(255,209,102,.2);}
+.lb-row.rank-2{border-color:var(--muted);}
+.lb-row.rank-3{border-color:#cd7f32;}
+.lb-rank{font-family:'Bebas Neue',sans-serif;font-size:28px;width:36px;text-align:center;flex-shrink:0;}
+.lb-row.rank-1 .lb-rank{color:var(--gold);}
+.lb-row.rank-2 .lb-rank{color:var(--muted);}
+.lb-row.rank-3 .lb-rank{color:#cd7f32;}
+.lb-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+.lb-name{flex:1;font-size:16px;font-weight:600;}
+.lb-score{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--gold);}
+.lb-bar{position:absolute;left:0;top:0;bottom:0;background:rgba(255,209,102,.04);transition:width 1s ease;}
+.lb-btns{display:flex;gap:10px;}
+
+/* TEAM COLORS */
+.c-0{background:#ff6b35}.c-1{background:#06d6a0}.c-2{background:#ffd166}
+.c-3{background:#118ab2}.c-4{background:#ef476f}.c-5{background:#9b5de5}
+</style>
+</head>
+<body>
+
+<div style="position:fixed;bottom:0;left:0;right:0;text-align:center;font-size:9px;color:rgba(255,255,255,0.12);font-family:'DM Sans',sans-serif;padding:3px;pointer-events:none;z-index:9999;letter-spacing:.05em;">
+  WHOOPS! &copy; 2026 eozkazanc &amp; gsuner — All rights reserved
+</div>
+
+<!-- ===== SETUP ===== -->
+<div id="setup" class="screen active">
+  <div class="setup-scroll">
+    <div class="logo">WHOOPS!</div>
+    <div class="tagline">Close your eyes · Touch the board · Hope for the best</div>
+    <button onclick="showScreen('howtoplay')" style="background:none;border:1px solid #2a2845;border-radius:8px;padding:7px 18px;color:#8a8aaa;font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#ff6b35';this.style.color='#ff6b35'" onmouseout="this.style.borderColor='#2a2845';this.style.color='#8a8aaa'">❓ How to Play</button>
+
+    <div class="setup-card">
+      <!-- TEAMS -->
+      <div>
+        <div class="section-label">Teams</div>
+        <div class="teams-grid" id="teams-grid"></div>
+        <div style="margin-top:7px;display:flex;gap:7px;">
+          <button class="ctrl-btn" onclick="addTeam()" style="flex:1">+ Add Team</button>
+          <button class="ctrl-btn danger" onclick="removeTeam()" style="flex:1">− Remove</button>
+        </div>
+      </div>
+
+      <!-- ACTIONS -->
+      <div>
+        <div class="section-label">Actions — select exactly 6, click name to rename</div>
+        <div class="action-grid" id="action-grid"></div>
+        <div class="action-count-line" id="action-count-line" style="margin-top:6px;">Select exactly <em>6</em> actions. 4 random ones appear each throw.</div>
+      </div>
+
+      <!-- QUESTIONS -->
+      <div>
+        <div class="section-label">Questions</div>
+        <div class="q-mode-row">
+          <button class="q-mode-btn selected" id="qm-csv" onclick="setQMode('csv',this)">
+            <span class="qmn">📄 CSV Upload</span>
+            <span class="qmd">Upload a file</span>
+          </button>
+          <button class="q-mode-btn" id="qm-manual" onclick="setQMode('manual',this)">
+            <span class="qmn">✏️ Type Now</span>
+            <span class="qmd">Enter questions here</span>
+          </button>
+        </div>
+
+        <!-- CSV panel -->
+        <div id="csv-panel" style="margin-top:10px;">
+          <div class="csv-zone" id="csv-zone" onclick="document.getElementById('csv-file').click()">
+            <input type="file" id="csv-file" accept=".csv,.txt" onchange="loadCSV(event)" onclick="event.stopPropagation()">
+            <div id="csv-icon" style="font-size:18px;margin-bottom:3px;">📄</div>
+            <div class="csv-label" id="csv-label"><strong>Upload CSV</strong> — one question per row</div>
+            <div class="csv-info" id="csv-info" style="font-size:10px;color:var(--muted);margin-top:2px;">Optional 2nd column = answer</div>
+          </div>
+          <div class="csv-order-row" id="csv-order-row" style="display:none;">
+            <button class="order-btn selected" onclick="setOrder('seq',this)">📋 In order</button>
+            <button class="order-btn" onclick="setOrder('shuf',this)">🔀 Shuffle</button>
+          </div>
+        </div>
+
+        <!-- Manual panel -->
+        <div id="manual-panel" style="margin-top:10px;display:none;">
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+            <span style="font-size:10px;color:var(--muted);flex:1;">Question · Answer (optional)</span>
+            <button class="t-btn" onclick="addManualQ()">+ Add</button>
+          </div>
+          <div class="manual-q-list" id="manual-q-list"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px;text-align:center;">You can also type questions manually during the game.</div>
+      </div>
+
+      <!-- DART MODE -->
+      <div>
+        <div class="section-label">Dart Mode</div>
+        <div class="mode-toggle">
+          <button class="mode-btn selected" onclick="selectMode('vanilla',this)">
+            <span class="mn">🎯 Vanilla</span>
+            <span class="md">Classic rings — centre wins</span>
+          </button>
+          <button class="mode-btn" onclick="selectMode('adventurous',this)">
+            <span class="mn">🧩 Adventurous</span>
+            <span class="md">Puzzle patches, random scores</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- THROW STYLE -->
+      <div>
+        <div class="section-label">Throw Style</div>
+        <div class="mode-toggle">
+          <button class="mode-btn selected" id="ts-blind" onclick="selectThrowStyle('blind',this)">
+            <span class="mn">🙈 Blind Throw</span>
+            <span class="md">Eyes closed, touch the board</span>
+          </button>
+          <button class="mode-btn" id="ts-random" onclick="selectThrowStyle('random',this)">
+            <span class="mn">🎲 Random Throw</span>
+            <span class="md">One click — lands anywhere</span>
+          </button>
+        </div>
+        <div id="ts-hint" style="font-size:10px;color:var(--muted);margin-top:6px;text-align:center;display:none;">Fair: same score distribution for all teams each round.</div>
+      </div>
+
+      <button class="start-btn" onclick="startGame()">START GAME</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== QUESTION SCREEN ===== -->
+<div id="question" class="screen">
+  <div class="top-bar">
+    <div class="game-title">WHOOPS!</div>
+    <div class="score-strip" id="score-strip"></div>
+    <button class="ctrl-btn" onclick="goSetup()" style="flex-shrink:0;font-size:11px;padding:6px 10px;">⚙</button>
+  </div>
+  <div class="q-body">
+    <div class="q-meta">
+      <div class="q-badge" id="round-badge">ROUND 1</div>
+      <div class="q-nav-row" id="q-nav-row" style="display:none;">
+        <button class="t-btn" onclick="prevQ()">‹</button>
+        <div class="q-nav-label" id="q-nav-label">1/1</div>
+        <button class="t-btn" onclick="nextQ()">›</button>
+      </div>
+    </div>
+    <textarea class="q-textarea" id="q-textarea" placeholder="TYPE QUESTION HERE…" rows="2"></textarea>
+    <div class="answer-reveal-box" id="answer-box">
+      <div class="answer-pre">Answer</div>
+      <div id="answer-text"></div>
+    </div>
+    <div class="timer-block">
+      <div class="timer-display" id="timer-display">—</div>
+      <div class="timer-btns">
+        <div class="timer-row1">
+          <select class="t-select" id="timer-select">
+            <option value="20">20s</option><option value="30">30s</option>
+            <option value="45">45s</option><option value="60" selected>60s</option>
+            <option value="90">90s</option><option value="120">2min</option>
+          </select>
+          <button class="t-btn go" id="btn-start-timer" onclick="startTimer()">▶ Start</button>
+        </div>
+        <div class="timer-row2">
+          <button class="t-btn" id="btn-pause-timer" onclick="pauseTimer()" style="display:none;">⏸ Pause</button>
+          <button class="t-btn danger" id="btn-reset-timer" onclick="resetTimer()" style="display:none;">↺ Reset</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="controls-bar">
+    <div id="ctrl-phase-0">
+      <button class="ctrl-btn primary" onclick="showPhase(1)">Reveal &amp; Mark Teams →</button>
+    </div>
+    <div id="ctrl-phase-1" style="display:none;flex-direction:column;gap:10px;width:100%;align-items:center;">
+      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;justify-content:center;">
+        <input id="answer-input" placeholder="Type answer (optional)…" style="background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:6px 11px;font-family:'DM Sans',sans-serif;font-size:12px;outline:none;width:190px;"/>
+        <button class="ctrl-btn" onclick="revealAnswer()">Show Answer</button>
+      </div>
+      <div>
+        <div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);text-align:center;margin-bottom:7px;">Who answered correctly?</div>
+        <div class="answer-check-row" id="answer-check-row"></div>
+      </div>
+      <div style="display:flex;gap:9px;">
+        <button class="ctrl-btn" onclick="showPhase(0)">← Back</button>
+        <button class="ctrl-btn success" onclick="gotoDart()">→ Throw Time!</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== DART SCREEN ===== -->
+<div id="dartboard" class="screen">
+  <div class="top-bar" id="dart-top-bar">
+    <div class="game-title">WHOOPS!</div>
+    <div class="score-strip" id="dart-score-strip"></div>
+    <div class="throw-indicator" id="throw-indicator">Ready</div>
+  </div>
+  <div class="dart-area" id="dart-area">
+    <!-- 4 quadrant action zones (HTML divs, always visible) -->
+    <div class="quad" id="quad-0" data-qi="0"></div>
+    <div class="quad" id="quad-1" data-qi="1"></div>
+    <div class="quad" id="quad-2" data-qi="2"></div>
+    <div class="quad" id="quad-3" data-qi="3"></div>
+    <!-- Dart SVG: scoring rings, centred on top -->
+    <div id="dart-svg-wrap"><svg id="dart-svg"></svg></div>
+    <!-- Cover -->
+    <div id="dart-cover"><div class="cicon">🎯</div><div class="clabel">CLICK TO REVEAL<br>THEN THROW!</div></div>
+    <!-- Result -->
+    <div id="result-popup">
+      <div class="rp-team" id="rp-team"></div>
+      <div class="rp-value" id="rp-value"></div>
+      <div class="rp-label" id="rp-label"></div>
+      <div class="rp-who" id="rp-who"></div>
+    </div>
+  </div>
+  <div class="dart-bottom" id="dart-bottom"></div>
+</div>
+
+<!-- ===== LEADERBOARD ===== -->
+<div id="leaderboard" class="screen">
+  <div class="top-bar">
+    <div class="game-title">WHOOPS!</div>
+    <div style="flex:1;"></div>
+  </div>
+  <div class="lb-body">
+    <div class="lb-title">🏆 Final Scores</div>
+    <div class="lb-list" id="lb-list"></div>
+    <div class="lb-btns">
+      <button class="ctrl-btn primary" onclick="startGame()">▶ Play Again</button>
+      <button class="ctrl-btn" onclick="goSetup()">⚙ Setup</button>
+    </div>
+    <div style="font-size:10px;color:#3a3860;margin-top:12px;text-align:center;">WHOOPS! &copy; 2026 eozkazanc &amp; gsuner</div>
+  </div>
+</div>
+
+<!-- ===== HOW TO PLAY ===== -->
+<div id="howtoplay" class="screen">
+  <div class="top-bar">
+    <div class="game-title">WHOOPS!</div>
+    <div style="flex:1;"></div>
+    <button class="ctrl-btn" onclick="showScreen('setup')" style="flex-shrink:0;">← Back</button>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:24px 20px 32px;display:flex;flex-direction:column;align-items:center;gap:0;scrollbar-width:thin;scrollbar-color:#2a2845 transparent;">
+    <div style="width:min(560px,100%);display:flex;flex-direction:column;gap:18px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:clamp(28px,5vw,48px);letter-spacing:.08em;background:linear-gradient(135deg,#ff6b35,#ffd166);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center;">How to Play</div>
+
+      <div style="background:#16142a;border:1px solid #2a2845;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.08em;color:#ff6b35;">🎯 The Idea</div>
+        <div style="font-size:13px;color:#c0c0d8;line-height:1.6;">A question-and-answer game where correct teams earn the right to throw a dart — blindly — at the board. Points depend on where they land. But some areas trigger silly actions instead!</div>
+      </div>
+
+      <div style="background:#16142a;border:1px solid #2a2845;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.08em;color:#ffd166;">📋 Round Flow</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#ff6b35;width:28px;flex-shrink:0;">1</div>
+            <div style="font-size:13px;color:#c0c0d8;line-height:1.5;"><strong style="color:#fffffe;">Show the question.</strong> The teacher displays it on screen. Start the timer if needed.</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#ff6b35;width:28px;flex-shrink:0;">2</div>
+            <div style="font-size:13px;color:#c0c0d8;line-height:1.5;"><strong style="color:#fffffe;">All teams answer simultaneously</strong> on paper or mini-boards. No shouting out.</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#ff6b35;width:28px;flex-shrink:0;">3</div>
+            <div style="font-size:13px;color:#c0c0d8;line-height:1.5;"><strong style="color:#fffffe;">Reveal the answer.</strong> Mark which teams got it right using the check buttons.</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#ff6b35;width:28px;flex-shrink:0;">4</div>
+            <div style="font-size:13px;color:#c0c0d8;line-height:1.5;"><strong style="color:#fffffe;">Throw time!</strong> One member from each correct team comes up. The teacher clicks <em>Reveal &amp; Throw</em> — scores appear on the board.</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#ff6b35;width:28px;flex-shrink:0;">5</div>
+            <div style="font-size:13px;color:#c0c0d8;line-height:1.5;"><strong style="color:#fffffe;">Eyes closed!</strong> The student closes their eyes and touches the screen anywhere. Points are awarded for the spot they hit on the dartboard.</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#ff6b35;width:28px;flex-shrink:0;">6</div>
+            <div style="font-size:13px;color:#c0c0d8;line-height:1.5;"><strong style="color:#fffffe;">Action zones!</strong> If they touch the coloured background instead of the dart, they get 0 points but must perform that action in front of the class.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#16142a;border:1px solid #2a2845;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.08em;color:#06d6a0;">🧩 Dart Modes</div>
+        <div style="font-size:13px;color:#c0c0d8;line-height:1.6;"><strong style="color:#fffffe;">🎯 Vanilla</strong> — Classic concentric rings. The centre is always worth the most (50 pts). Outer rings score less.</div>
+        <div style="font-size:13px;color:#c0c0d8;line-height:1.6;"><strong style="color:#fffffe;">🧩 Adventurous</strong> — The board is divided into irregular colour patches, each worth a different score. The shapes shift after every throw, but all teams face the same set of scores in one round.</div>
+      </div>
+
+      <div style="background:#16142a;border:1px solid #2a2845;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.08em;color:#9b5de5;">💡 Tips</div>
+        <div style="font-size:13px;color:#c0c0d8;line-height:1.5;">• Teams that didn't answer correctly simply skip their throw that round.</div>
+        <div style="font-size:13px;color:#c0c0d8;line-height:1.5;">• You can type questions manually during the game — you don't need a CSV.</div>
+        <div style="font-size:13px;color:#c0c0d8;line-height:1.5;">• Use the leaderboard button at the end of any round to end the game early.</div>
+        <div style="font-size:13px;color:#c0c0d8;line-height:1.5;">• Action zones shuffle after every throw — nobody knows where JUMP! will be next.</div>
+      </div>
+
+      <div style="text-align:center;font-size:10px;color:#4a4870;margin-top:4px;line-height:1.7;">
+        WHOOPS! &copy; 2026 eozkazanc &amp; gsuner. All rights reserved.<br>
+        Created for classroom use.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Blind overlay -->
+<div id="blind-inst">
+  <div class="bi-banner"><div class="bi-text" id="bi-text">EYES CLOSED — TOUCH THE BOARD!</div></div>
+</div>
+
+<script>
+// ─── CONSTANTS ───────────────────────────────────────────────
+const TEAM_COLORS = ['#ff6b35','#06d6a0','#ffd166','#118ab2','#ef476f','#9b5de5'];
+const VANILLA_SCORES = [50,25,20,15,10,5];
+
+// ALL_ACTIONS: base definitions. Labels are overridable in setup via S.actionLabels.
+const ALL_ACTIONS_BASE = [
+  {label:'JUMP!',           icon:'🐸', color:'#2a6b1a'},
+  {label:'SING!',           icon:'🎵', color:'#1a3a7a'},
+  {label:'DANCE!',          icon:'💃', color:'#6a1a5a'},
+  {label:'RUN!',            icon:'🏃', color:'#7a3a1a'},
+  {label:'ROAR!',           icon:'🦁', color:'#5a1a1a'},
+  {label:'SPIN!',           icon:'🌀', color:'#1a5a6a'},
+  {label:'CARTWHEEL!',      icon:'🤸', color:'#4a1a7a'},
+  {label:'CLUCK!',          icon:'🐔', color:'#6a5a1a'},
+  {label:'HOWL!',           icon:'🐺', color:'#2a2a5a'},
+  {label:'ROBOT!',          icon:'🤖', color:'#1a5a3a'},
+  {label:'FREEZE!',         icon:'🧊', color:'#1a4a5a'},
+  {label:'WADDLE!',         icon:'🐧', color:'#2a4a6a'},
+  {label:'TEACHER SINGS!',  icon:'🎤', color:'#4a1a2a'},
+  {label:'TEACHER DANCES!', icon:'🕺', color:'#1a3a4a'},
+  {label:'TEACHER ROARS!',  icon:'😤', color:'#4a2a1a'},
+  {label:'TEACHER HOWLS!',  icon:'🌕', color:'#2a1a4a'},
+];
+// ALL_ACTIONS is resolved at game start with editable labels
+let ALL_ACTIONS = ALL_ACTIONS_BASE.map(a=>({...a}));
+
+// ─── STATE ───────────────────────────────────────────────────
+let S = {
+  teams:['Team 1','Team 2','Team 3','Team 4'],
+  scores:[0,0,0,0],
+  mode:'vanilla',
+  throwStyle:'blind', // 'blind' | 'random'
+  selectedActions:[], // indices into ALL_ACTIONS
+  csvQuestions:[],
+  csvOrder:'seq',
+  manualQuestions:[{q:'',a:''}],
+  questionOrder:[],
+  qIdx:0,
+  qMode:'csv', // 'csv'|'manual'
+  round:1,
+  correctTeams:[],
+  throwQueue:[],
+  throwIdx:0,
+  boardConfig:null,  // {scores, ringCount, patches(adventurous)}
+  actionZones:[],    // shuffled each throw: [{actionIdx, region}]
+  markers:[],
+  phase:'idle',
+  roundScores:null,
+  timerLeft:60,
+  timerRunning:false,
+  timerInterval:null,
+  timerMax:60,
+  // layout (set when dart screen opens)
+  dartCX:0, dartCY:0, dartR:0,
+  areaW:0, areaH:0,
+};
+
+// ─── SETUP ───────────────────────────────────────────────────
+function renderTeamInputs(){
+  document.getElementById('teams-grid').innerHTML=S.teams.map((n,i)=>`
+    <div class="team-row">
+      <div class="team-dot c-${i}"></div>
+      <input class="team-input" value="${n}" oninput="S.teams[${i}]=this.value"/>
+    </div>`).join('');
+}
+function addTeam(){if(S.teams.length>=6)return;S.teams.push('Team '+(S.teams.length+1));S.scores.push(0);renderTeamInputs();}
+function removeTeam(){if(S.teams.length<=2)return;S.teams.pop();S.scores.pop();renderTeamInputs();}
+
+function renderActionGrid(){
+  document.getElementById('action-grid').innerHTML=ALL_ACTIONS.map((a,i)=>`
+    <div class="action-chip" id="ac-${i}" onclick="toggleAction(${i})">
+      <span class="ac-icon">${a.icon}</span>
+      <input class="ac-label-input" id="acl-${i}" value="${a.label}"
+        onclick="event.stopPropagation()"
+        onchange="ALL_ACTIONS[${i}].label=this.value.toUpperCase().trim()||ALL_ACTIONS_BASE[${i}].label;this.value=ALL_ACTIONS[${i}].label;"
+        style="background:none;border:none;outline:none;color:inherit;font:inherit;width:100%;cursor:text;font-size:11px;"/>
+      <span class="check-mark">✓</span>
+    </div>`).join('');
+  updateActionCount();
+}
+function toggleAction(i){
+  const idx=S.selectedActions.indexOf(i);
+  if(idx===-1){
+    if(S.selectedActions.length>=6)return;
+    S.selectedActions.push(i);
+    document.getElementById('ac-'+i).classList.add('selected');
+  } else {
+    S.selectedActions.splice(idx,1);
+    document.getElementById('ac-'+i).classList.remove('selected');
+  }
+  updateActionCount();
+}
+function updateActionCount(){
+  const n=S.selectedActions.length;
+  const el=document.getElementById('action-count-line');
+  if(n<6){
+    el.innerHTML=`<span style="color:var(--rose)">${n}/6 selected — need exactly 6</span>`;
+  } else {
+    el.innerHTML=`<span style="color:var(--mint)">✓ 6 actions selected — 4 random ones per throw</span>`;
+  }
+}
+
+function selectMode(m,btn){S.mode=m;document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');}
+function selectThrowStyle(s,btn){
+  S.throwStyle=s;
+  document.getElementById('ts-blind').classList.toggle('selected',s==='blind');
+  document.getElementById('ts-random').classList.toggle('selected',s==='random');
+  document.getElementById('ts-hint').style.display=s==='random'?'block':'none';
+}
+
+// Q mode
+function setQMode(m,btn){
+  S.qMode=m;
+  document.querySelectorAll('.q-mode-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('csv-panel').style.display=m==='csv'?'':'none';
+  document.getElementById('manual-panel').style.display=m==='manual'?'':'none';
+}
+function setOrder(o,btn){S.csvOrder=o;document.querySelectorAll('.order-btn').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');}
+
+// CSV
+function loadCSV(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const lines=ev.target.result.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    S.csvQuestions=lines.map(line=>{
+      const parts=line.match(/(".*?"|[^,]+)(?:,|$)/g)||[line];
+      const clean=parts.map(p=>p.replace(/^"|"$/g,'').replace(/,$/,'').trim());
+      return {q:clean[0]||'',a:clean[1]||''};
+    }).filter(x=>x.q);
+    const n=S.csvQuestions.length;
+    document.getElementById('csv-zone').classList.add('loaded');
+    document.getElementById('csv-icon').textContent='✅';
+    document.getElementById('csv-label').innerHTML=`<strong>${n} question${n!==1?'s':''} loaded</strong>`;
+    document.getElementById('csv-order-row').style.display='flex';
+  };
+  reader.readAsText(file);
+}
+
+// Manual Q
+function renderManualQList(){
+  document.getElementById('manual-q-list').innerHTML=S.manualQuestions.map((item,i)=>`
+    <div class="mq-row">
+      <div class="mq-num">${i+1}</div>
+      <input class="mq-q" value="${item.q}" placeholder="Question…" oninput="S.manualQuestions[${i}].q=this.value"/>
+      <input class="mq-a" value="${item.a}" placeholder="Answer…" oninput="S.manualQuestions[${i}].a=this.value"/>
+    </div>`).join('');
+}
+function addManualQ(){S.manualQuestions.push({q:'',a:''});renderManualQList();setTimeout(()=>{const list=document.getElementById('manual-q-list');list.scrollTop=list.scrollHeight;},50);}
+
+// Build question order
+function buildQuestionOrder(){
+  let qs=[];
+  if(S.qMode==='csv') qs=S.csvQuestions;
+  else qs=S.manualQuestions.filter(x=>x.q.trim());
+  if(!qs.length){S.questionOrder=[];S.qIdx=0;return;}
+  let order=Array.from({length:qs.length},(_,i)=>i);
+  if(S.csvOrder==='shuf') order=shuffleArr(order);
+  S._activeQuestions=qs;
+  S.questionOrder=order;
+  S.qIdx=0;
+}
+function loadCurrentQ(){
+  if(!S.questionOrder.length)return;
+  const item=S._activeQuestions[S.questionOrder[S.qIdx]];
+  document.getElementById('q-textarea').value=item.q;
+  document.getElementById('answer-input').value=item.a;
+  updateQNav();
+}
+function updateQNav(){
+  const row=document.getElementById('q-nav-row');
+  if(!S.questionOrder.length){row.style.display='none';return;}
+  row.style.display='flex';
+  document.getElementById('q-nav-label').textContent=`${S.qIdx+1}/${S.questionOrder.length}`;
+}
+function prevQ(){if(S.qIdx>0){S.qIdx--;loadCurrentQ();}}
+function nextQ(){if(S.qIdx<S.questionOrder.length-1){S.qIdx++;loadCurrentQ();}}
+
+// ─── START ───────────────────────────────────────────────────
+function startGame(){
+  if(S.selectedActions.length!==6){
+    alert('Please select exactly 6 actions before starting!');
+    return;
+  }
+  document.querySelectorAll('.team-input').forEach((el,i)=>{S.teams[i]=el.value||'Team '+(i+1);});
+  S.scores=S.teams.map(()=>0);
+  S.round=1;
+  buildQuestionOrder();
+  showScreen('question');
+  resetQuestionScreen();
+}
+
+// ─── QUESTION SCREEN ─────────────────────────────────────────
+function resetQuestionScreen(){
+  document.getElementById('round-badge').textContent='ROUND '+S.round;
+  document.getElementById('answer-box').classList.remove('shown');
+  S.correctTeams=[];
+  renderScoreStrip('score-strip');
+  renderCheckRow();
+  showPhase(0);
+  clearInterval(S.timerInterval);S.timerRunning=false;
+  const d=document.getElementById('timer-display');d.textContent='—';d.classList.remove('urgent');
+  setTimerBtns('idle');
+  if(S.questionOrder.length){loadCurrentQ();updateQNav();}
+  else{document.getElementById('q-textarea').value='';document.getElementById('answer-input').value='';updateQNav();}
+}
+function renderScoreStrip(id){
+  const max=Math.max(...S.scores,1);
+  document.getElementById(id).innerHTML=S.teams.map((n,i)=>`
+    <div class="score-chip${S.scores[i]===max&&S.scores[i]>0?' leading':''}">
+      <div class="chip-dot c-${i}"></div><span>${n}</span>
+      <span class="chip-score">${S.scores[i]}</span>
+    </div>`).join('');
+}
+function renderCheckRow(){
+  document.getElementById('answer-check-row').innerHTML=S.teams.map((n,i)=>`
+    <button class="check-btn" id="chk-${i}" onclick="toggleCorrect(${i})">
+      <div class="c-dot c-${i}"></div>${n}
+    </button>`).join('');
+}
+function toggleCorrect(i){
+  const btn=document.getElementById('chk-'+i);
+  const idx=S.correctTeams.indexOf(i);
+  if(idx===-1){S.correctTeams.push(i);btn.classList.add('correct','correct-pop');setTimeout(()=>btn.classList.remove('correct-pop'),300);}
+  else{S.correctTeams.splice(idx,1);btn.classList.remove('correct');}
+}
+function showPhase(n){
+  [0,1].forEach(i=>{const el=document.getElementById('ctrl-phase-'+i);if(!el)return;el.style.display=(i===n)?(n===1?'flex':'block'):'none';});
+}
+function revealAnswer(){
+  const ans=document.getElementById('answer-input').value.trim();
+  document.getElementById('answer-text').textContent=ans||'(no answer set)';
+  document.getElementById('answer-box').classList.add('shown');
+}
+
+// ─── TIMER ───────────────────────────────────────────────────
+function setTimerBtns(mode){
+  const bS=document.getElementById('btn-start-timer'),bP=document.getElementById('btn-pause-timer'),bR=document.getElementById('btn-reset-timer'),sel=document.getElementById('timer-select');
+  if(mode==='idle'){bS.style.display='';bS.textContent='▶ Start';bP.style.display='none';bR.style.display='none';sel.style.display='';}
+  else if(mode==='running'){bS.style.display='none';bP.style.display='';bR.style.display='';sel.style.display='none';}
+  else{bS.style.display='';bS.textContent='▶ Resume';bP.style.display='none';bR.style.display='';sel.style.display='none';}
+}
+function startTimer(){
+  if(document.getElementById('btn-start-timer').textContent.includes('Start')){
+    S.timerLeft=parseInt(document.getElementById('timer-select').value);
+    S.timerMax=S.timerLeft;
+  }
+  S.timerRunning=true;setTimerBtns('running');tick();
+  S.timerInterval=setInterval(tick,1000);
+}
+function tick(){
+  const d=document.getElementById('timer-display');
+  d.textContent=S.timerLeft;
+  if(S.timerLeft<=5)d.classList.add('urgent');else d.classList.remove('urgent');
+  if(S.timerLeft<=0){clearInterval(S.timerInterval);S.timerRunning=false;d.textContent='⏰';d.classList.remove('urgent');setTimerBtns('paused');}
+  else S.timerLeft--;
+}
+function pauseTimer(){clearInterval(S.timerInterval);S.timerRunning=false;setTimerBtns('paused');}
+function resetTimer(){
+  clearInterval(S.timerInterval);S.timerRunning=false;
+  S.timerLeft=parseInt(document.getElementById('timer-select').value)||60;S.timerMax=S.timerLeft;
+  const d=document.getElementById('timer-display');d.textContent=S.timerLeft;d.classList.remove('urgent');setTimerBtns('idle');
+}
+
+// ─── GOTO DART ────────────────────────────────────────────────
+function gotoDart(){
+  S.throwQueue=[...S.correctTeams];S.throwIdx=0;
+  if(!S.throwQueue.length){nextRound();return;}
+  if(S.questionOrder.length&&S.qIdx<S.questionOrder.length-1)S.qIdx++;
+  S._pendingBuildDart=true; // signal showScreen to call buildDartScreen after layout
+  showScreen('dartboard');
+}
+
+// ─── DART SCREEN ──────────────────────────────────────────────
+function buildDartScreen(){
+  initRoundScores(); // fix this round's score set before generating config
+  S.boardConfig=generateBoardConfig();
+  S.markers=[];
+  computeLayout();
+  shuffleActionZones();
+  // Pre-generate one random throw point per team slot for this round.
+  // All teams face the same pool of random landing spots (fair).
+  if(S.throwStyle==='random'){
+    S._randomThrows=S.throwQueue.map(()=>randomDartPoint());
+  }
+  renderScoreStrip('dart-score-strip');
+  drawAll(false);
+  positionOverlays(true);
+  updateThrowIndicator();
+  renderDartBottom('waiting');
+  S.phase='covered';
+}
+
+// Generate a random throw point. Fixed 20% chance of action (background),
+// 80% chance of scoring (inside dart circle). Uniform within each zone.
+function randomDartPoint(){
+  const R=S.dartR, cx=S.dartCX, cy=S.dartCY;
+  const W=S.areaW, H=S.areaH;
+  const ACTION_CHANCE=0.25; // 1 in 4
+
+  if(Math.random()>ACTION_CHANCE){
+    // Land inside dart circle (80%)
+    for(let i=0;i<500;i++){
+      const x=(Math.random()*2-1)*R;
+      const y=(Math.random()*2-1)*R;
+      if(x*x+y*y<=R*R) return {sx:cx+x, sy:cy+y};
+    }
+  }
+  // Land in background quadrant (20%)
+  for(let i=0;i<500;i++){
+    const sx=Math.random()*W;
+    const sy=Math.random()*H;
+    const dx=sx-cx, dy=sy-cy;
+    if(dx*dx+dy*dy>R*R) return {sx, sy};
+  }
+  // Fallback: safely inside circle
+  return {sx:cx, sy:cy};
+}
+
+function computeLayout(){
+  const area=document.getElementById('dart-area');
+  const W=area.clientWidth, H=area.clientHeight;
+  S.areaW=W; S.areaH=H;
+  // Dart circle: largest circle that fits with some margin
+  const margin=20;
+  const R=Math.floor(Math.min(W,H)/2)-margin;
+  S.dartR=R;
+  S.dartCX=Math.floor(W/2);
+  S.dartCY=Math.floor(H/2);
+}
+
+// ── REGION SYSTEM ────────────────────────────────────────────────────
+// The background is divided into exactly 6 equal pie sectors radiating
+// from the dart circle centre to the canvas edges. This covers every
+// background pixel with zero gaps. If fewer than 6 actions are selected,
+// the remaining sectors stay dark/empty.
+//
+// Sector i spans angles: i*(360/6) to (i+1)*(360/6), offset by -90° so
+// sector 0 starts at top. We always draw all 6 sectors; only the ones
+// assigned an action show color + label.
+//
+// IMPORTANT: for hit detection we use the SAME angle math, so clicking
+// anywhere outside the dart circle reliably maps to a sector.
+
+// ── SECTOR SYSTEM ────────────────────────────────────────────
+// Always exactly 4 sectors. Boundaries are a steeper X shape:
+// lines cross at ~30° from vertical (60° from horizontal),
+// matching the red-line guides in the reference image.
+// This gives left/right sectors that are wide and clearly labeled,
+// and top/bottom sectors that are narrower but still clearly visible.
+// 6 actions selected; 4 shown per throw (shuffled each time).
+const N_SECTORS = 4;
+// Quadrant indices: 0=TL, 1=TR, 2=BL, 3=BR
+
+function shuffleActionZones(){
+  const pool=[...S.selectedActions];
+  const picked=shuffleArr(pool).slice(0,N_SECTORS);
+  S.actionZones=picked.map((ai,i)=>({actionIdx:ai,regionIdx:i}));
+}
+
+function getRegionForPoint(sx,sy){
+  const {dartCX:cx,dartCY:cy}=S;
+  if(sx<cx && sy<cy) return 0; // TL
+  if(sx>=cx && sy<cy) return 1; // TR
+  if(sx<cx && sy>=cy) return 2; // BL
+  return 3;                      // BR
+}
+
+function getSectorLabelPos(i){
+  const {dartCX:cx,dartCY:cy,areaW:W,areaH:H}=S;
+  const PAD=90;
+  const positions=[
+    {lx:cx/2,        ly:cy/2},        // TL
+    {lx:cx+(W-cx)/2, ly:cy/2},        // TR
+    {lx:cx/2,        ly:cy+(H-cy)/2}, // BL
+    {lx:cx+(W-cx)/2, ly:cy+(H-cy)/2}, // BR
+  ];
+  const p=positions[i];
+  return {
+    lx:Math.max(PAD,Math.min(W-PAD,p.lx)),
+    ly:Math.max(PAD,Math.min(H-PAD,p.ly))
+  };
+}
+function drawAll(revealed){
+  updateQuads(revealed);
+  drawDartSVG(revealed);
+}
+
+// Quadrant colors (subtle, readable against dark bg)
+const QUAD_COLORS=['#1a1035','#0d1e35','#1a1a0d','#1a0d1a']; // TL, TR, BL, BR
+
+function updateQuads(revealed){
+  const {dartCX:cx,dartCY:cy,dartR:R,areaW:W,areaH:H}=S;
+  const qMap={};
+  S.actionZones.forEach(z=>{ qMap[z.regionIdx]=z; });
+
+  // Quadrant bounds (in dart-area px): 0=TL,1=TR,2=BL,3=BR
+  const bounds=[
+    {left:0,    top:0,  width:cx,    height:cy},
+    {left:cx,   top:0,  width:W-cx,  height:cy},
+    {left:0,    top:cy, width:cx,    height:H-cy},
+    {left:cx,   top:cy, width:W-cx,  height:H-cy},
+  ];
+
+  for(let i=0;i<4;i++){
+    const div=document.getElementById('quad-'+i);
+    const b=bounds[i];
+    div.style.left=b.left+'px';
+    div.style.top=b.top+'px';
+    div.style.width=b.width+'px';
+    div.style.height=b.height+'px';
+    div.style.pointerEvents='auto';
+
+    const zone=qMap[i];
+    const action=zone ? ALL_ACTIONS[zone.actionIdx] : null;
+
+    // Background color
+    div.style.background=action ? action.color : QUAD_COLORS[i];
+
+    // Content
+    if(!revealed || !action){
+      div.innerHTML=action
+        ? `<div class="quad-icon" style="font-size:40px;opacity:0.15">?</div>`
+        : '';
+      continue;
+    }
+
+    // Size text to quadrant
+    const minDim=Math.min(b.width,b.height);
+    const emojiSize=Math.max(28,Math.min(56,minDim*0.22));
+    const lblSize=Math.max(16,Math.min(44,minDim*0.17));
+
+    div.innerHTML=`
+      <div class="quad-icon" style="font-size:${emojiSize}px">${action.icon}</div>
+      <div class="quad-label" style="font-size:${lblSize}px">${action.label}</div>
+      <div class="quad-pts">0 pts</div>`;
+  }
+}
+
+
+// SVG dart board
+function drawDartSVG(revealed){
+  const wrap=document.getElementById('dart-svg-wrap');
+  const svg=document.getElementById('dart-svg');
+  const R=S.dartR;
+  const size=R*2;
+  wrap.style.left=S.dartCX+'px';
+  wrap.style.top=S.dartCY+'px';
+  svg.setAttribute('width',size);svg.setAttribute('height',size);
+  svg.setAttribute('viewBox',`0 0 ${size} ${size}`);
+  svg.style.background='transparent';
+  svg.innerHTML='';
+
+  const cx=R,cy=R;
+  const RINGS=S.boardConfig.ringCount;
+  const scores=S.boardConfig.scores;
+
+  // Defs
+  const defs=elNS('defs');
+  defs.innerHTML=`
+    <filter id="sf" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="sf2" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>`;
+  svg.appendChild(defs);
+
+  if(S.mode==='vanilla'){
+    drawVanillaRings(svg,cx,cy,R,RINGS,scores,revealed);
+  } else {
+    drawAdventurousPatches(svg,cx,cy,R,scores,revealed);
+  }
+
+  // Markers on dart
+  S.markers.forEach(m=>{
+    if(!m.inBg){
+      const c=elNS('circle');
+      c.setAttribute('cx',m.dx);c.setAttribute('cy',m.dy);c.setAttribute('r','11');
+      c.setAttribute('fill',m.color);c.setAttribute('stroke','white');c.setAttribute('stroke-width','2.5');
+      c.setAttribute('pointer-events','none');
+      svg.appendChild(c);
+      const ci=elNS('circle');
+      ci.setAttribute('cx',m.dx);ci.setAttribute('cy',m.dy);ci.setAttribute('r','4');
+      ci.setAttribute('fill','white');ci.setAttribute('pointer-events','none');
+      svg.appendChild(ci);
+    }
+  });
+}
+
+function drawVanillaRings(svg,cx,cy,R,RINGS,scores,revealed){
+  // ring colors: outer→inner
+  const palette=['#1e3a1e','#2a6030','#8b0000','#cc0000','#9a0000','#cc2222'];
+  // Draw outer→inner
+  for(let r=RINGS-1;r>=0;r--){
+    const rr=R*((r+1)/RINGS);
+    const circ=elNS('circle');
+    circ.setAttribute('cx',cx);circ.setAttribute('cy',cy);circ.setAttribute('r',rr);
+    circ.setAttribute('fill',palette[r]);
+    circ.setAttribute('stroke',r===RINGS-1?'none':'rgba(255,255,255,0.1)');circ.setAttribute('stroke-width','1.5');
+    svg.appendChild(circ);
+
+    if(revealed){
+      const sc=scores[r];
+      const innerR=r===0?0:R*r/RINGS;
+      const midR=(rr+innerR)/2;
+      const fsize=r===0?Math.max(20,Math.floor(R*0.14)):Math.max(13,Math.floor(R*0.09));
+
+      // Place score at 4 positions in each band (just top+bottom for small inner rings)
+      const pts=r===0?[[cx,cy]]:[[cx,cy-midR],[cx,cy+midR],[cx-midR,cy],[cx+midR,cy]];
+      pts.forEach(([tx,ty])=>{
+        const t=elNS('text');
+        t.setAttribute('x',tx);t.setAttribute('y',ty);
+        t.setAttribute('text-anchor','middle');t.setAttribute('dominant-baseline','middle');
+        t.setAttribute('font-family',"'Bebas Neue',sans-serif");
+        t.setAttribute('font-size',fsize);t.setAttribute('font-weight','700');
+        t.setAttribute('fill',r<=1?'#ffd166':'rgba(255,255,255,0.9)');
+        t.setAttribute('pointer-events','none');t.setAttribute('filter','url(#sf)');
+        t.textContent=sc;
+        svg.appendChild(t);
+      });
+    }
+  }
+  // Bullseye dot
+  if(revealed){
+    const d=elNS('circle');d.setAttribute('cx',cx);d.setAttribute('cy',cy);
+    d.setAttribute('r',R*0.04);d.setAttribute('fill','#ff2222');d.setAttribute('pointer-events','none');
+    svg.appendChild(d);
+  }
+}
+
+// Adventurous: true Voronoi rendered via offscreen canvas → SVG image
+function drawAdventurousPatches(svg,cx,cy,R,scores,revealed){
+  const seeds=S.boardConfig.seeds;
+  const palette=S.boardConfig.patchColors;
+  const N=seeds.length;
+  const size=R*2;
+
+  // ── Render patches on offscreen canvas ──
+  const offscreen=document.createElement('canvas');
+  offscreen.width=size; offscreen.height=size;
+  const ctx=offscreen.getContext('2d');
+
+  // Parse hex palette to RGB for pixel ops
+  function hexRGB(h){const n=parseInt(h.slice(1),16);return[(n>>16)&255,(n>>8)&255,n&255];}
+  const rgbs=palette.map(hexRGB);
+
+  const imgData=ctx.createImageData(size,size);
+  const data=imgData.data;
+
+  // Precompute seed positions in pixel space
+  const seedPx=seeds.map(s=>({px:cx+s.x*R, py:cy+s.y*R}));
+
+  // Accumulate centroids for label placement
+  const centX=new Float64Array(N);
+  const centY=new Float64Array(N);
+  const centCount=new Int32Array(N);
+
+  for(let py=0;py<size;py++){
+    for(let px=0;px<size;px++){
+      const dx=px-cx, dy=py-cy;
+      if(dx*dx+dy*dy>R*R){continue;} // outside circle — transparent
+
+      // Find nearest seed
+      let bestI=0, bestD=Infinity;
+      for(let i=0;i<N;i++){
+        const sx=seedPx[i].px-px, sy=seedPx[i].py-py;
+        const d=sx*sx+sy*sy;
+        if(d<bestD){bestD=d;bestI=i;}
+      }
+
+      const idx=(py*size+px)*4;
+      const rgb=rgbs[bestI];
+      data[idx]=rgb[0]; data[idx+1]=rgb[1]; data[idx+2]=rgb[2]; data[idx+3]=255;
+
+      centX[bestI]+=px; centY[bestI]+=py; centCount[bestI]++;
+    }
+  }
+  ctx.putImageData(imgData,0,0);
+
+  // Draw border lines between patches (re-scan, darken pixels at boundaries)
+  const borderData=ctx.getImageData(0,0,size,size);
+  const bd=borderData.data;
+  for(let py=1;py<size-1;py++){
+    for(let px=1;px<size-1;px++){
+      const dx=px-cx,dy=py-cy;
+      if(dx*dx+dy*dy>R*R)continue;
+      const here=(py*size+px)*4;
+      const right=(py*size+px+1)*4;
+      const below=((py+1)*size+px)*4;
+      const isDiff=(bd[here]!==bd[right]||bd[here+1]!==bd[right+1])||
+                   (bd[here]!==bd[below]||bd[here+1]!==bd[below+1]);
+      if(isDiff){bd[here]=0;bd[here+1]=0;bd[here+2]=0;bd[here+3]=255;}
+    }
+  }
+  ctx.putImageData(borderData,0,0);
+
+  // Convert to data URL and embed as SVG image
+  const dataURL=offscreen.toDataURL('image/png');
+  const img=elNS('image');
+  img.setAttribute('x',0);img.setAttribute('y',0);
+  img.setAttribute('width',size);img.setAttribute('height',size);
+  img.setAttributeNS('http://www.w3.org/1999/xlink','href',dataURL);
+  img.setAttribute('pointer-events','none');
+
+  // Clip image to circle
+  const defs=svg.querySelector('defs');
+  const clipId='dartclip_adv';
+  const cp=elNS('clipPath');cp.setAttribute('id',clipId);
+  const clipCirc=elNS('circle');clipCirc.setAttribute('cx',cx);clipCirc.setAttribute('cy',cy);clipCirc.setAttribute('r',R);
+  cp.appendChild(clipCirc);defs.appendChild(cp);
+  img.setAttribute('clip-path',`url(#${clipId})`);
+  svg.appendChild(img);
+
+  // ── Score labels at patch centroids ──
+  if(revealed){
+    const fsize=Math.max(16,Math.floor(R*0.11));
+    for(let i=0;i<N;i++){
+      if(centCount[i]===0)continue;
+      const lx=centX[i]/centCount[i];
+      const ly=centY[i]/centCount[i];
+      const sc=scores[i];
+
+      // Score background pill for readability
+      const pill=elNS('rect');
+      const pw=fsize*1.8, ph=fsize*1.3;
+      pill.setAttribute('x',lx-pw/2);pill.setAttribute('y',ly-ph/2);
+      pill.setAttribute('width',pw);pill.setAttribute('height',ph);
+      pill.setAttribute('rx',ph/3);
+      pill.setAttribute('fill','rgba(0,0,0,0.55)');
+      pill.setAttribute('pointer-events','none');
+      svg.appendChild(pill);
+
+      const t=elNS('text');
+      t.setAttribute('x',lx);t.setAttribute('y',ly);
+      t.setAttribute('text-anchor','middle');t.setAttribute('dominant-baseline','middle');
+      t.setAttribute('font-family',"'Bebas Neue',sans-serif");
+      t.setAttribute('font-size',fsize);t.setAttribute('font-weight','700');
+      t.setAttribute('fill','#ffffff');
+      t.setAttribute('pointer-events','none');
+      t.textContent=sc;
+      svg.appendChild(t);
+    }
+  }
+
+  // Store centroids in board config for hit detection
+  S.boardConfig.centroids=Array.from({length:N},(_,i)=>({
+    px: centCount[i]>0?centX[i]/centCount[i]:cx+seeds[i].x*R,
+    py: centCount[i]>0?centY[i]/centCount[i]:cy+seeds[i].y*R,
+  }));
+
+  // Subtle circle border
+  const border=elNS('circle');border.setAttribute('cx',cx);border.setAttribute('cy',cy);border.setAttribute('r',R-1);
+  border.setAttribute('fill','none');border.setAttribute('stroke','rgba(255,255,255,0.15)');border.setAttribute('stroke-width','2');
+  border.setAttribute('pointer-events','none');
+  svg.appendChild(border);
+}
+
+// Call once per round to fix the score set for adventurous mode.
+// Each throw then reshuffles seeds (patch shapes + positions) but keeps same scores.
+function initRoundScores(){
+  const RINGS=6;
+  if(S.mode==='vanilla'){
+    S.roundScores=[...VANILLA_SCORES];
+  } else {
+    const pool=[50,40,30,25,20,15,10,5,3,1];
+    S.roundScores=shuffleArr(pool).slice(0,RINGS);
+  }
+}
+
+function generateBoardConfig(){
+  const RINGS=6;
+  // Use the round's fixed score set — same values for every team this round
+  const scores=S.roundScores?[...S.roundScores]:[...VANILLA_SCORES];
+  // Shuffle which patch gets which score (positions change, values don't)
+  const shuffledScores=shuffleArr([...scores]);
+
+  // Generate fresh random seeds for patch positions
+  const seeds=[];
+  for(let i=0;i<RINGS;i++){
+    let tries=0,ok=false;
+    while(!ok&&tries<60){
+      const x=(Math.random()-.5)*1.5;
+      const y=(Math.random()-.5)*1.5;
+      if(x*x+y*y<0.65){
+        const tooClose=seeds.some(s=>(s.x-x)**2+(s.y-y)**2<0.1);
+        if(!tooClose){seeds.push({x,y});ok=true;}
+      }
+      tries++;
+    }
+    if(!ok)seeds.push({x:(Math.random()-.5)*1.1,y:(Math.random()-.5)*1.1});
+  }
+  const patchPalette=['#8b1a1a','#1a5c8b','#1a8b3c','#8b6d1a','#6b1a8b','#8b3d1a','#1a7a8b','#5c8b1a'];
+  const patchColors=shuffleArr(patchPalette).slice(0,RINGS);
+  return {scores:shuffledScores,ringCount:RINGS,seeds,patchColors};
+}
+
+// ─── OVERLAYS ────────────────────────────────────────────────
+function positionOverlays(coverVisible){
+  const R=S.dartR,cx=S.dartCX,cy=S.dartCY;
+  // Dart SVG wrap
+  const wrap=document.getElementById('dart-svg-wrap');
+  wrap.style.left=cx+'px';wrap.style.top=cy+'px';
+  // Cover
+  const cover=document.getElementById('dart-cover');
+  cover.style.width=(R*2)+'px';cover.style.height=(R*2)+'px';
+  cover.style.left=cx+'px';cover.style.top=cy+'px';
+  if(coverVisible){
+    cover.classList.remove('revealing'); // no transition when snapping cover on
+    cover.classList.remove('hidden');
+  } else {
+    cover.classList.add('revealing');    // smooth fade when revealing to student
+    cover.classList.add('hidden');
+  }
+}
+
+// ─── BLIND / RANDOM THROW MODE ────────────────────────────────
+function revealDart(){
+  drawAll(true);
+  positionOverlays(false);
+  enterBlindMode();
+}
+function enterBlindMode(){
+  S.phase='blind';
+  document.body.classList.add('blind-mode');
+  renderDartBottom('blind');
+  const ti=S.throwQueue[S.throwIdx];
+  const isRandom=S.throwStyle==='random';
+
+  // Banner text differs by mode
+  document.getElementById('bi-text').textContent= isRandom
+    ? (S.teams[ti]||'Team').toUpperCase()+' — TAP ANYWHERE TO THROW!'
+    : (S.teams[ti]||'Team').toUpperCase()+' — EYES CLOSED! TOUCH THE BOARD!';
+  document.getElementById('blind-inst').classList.add('active');
+
+  const area=document.getElementById('dart-area');
+  if(area._throwHandler) area.removeEventListener('pointerdown',area._throwHandler);
+
+  // Make quads and SVG pass-through so dart-area catches the event
+  for(let i=0;i<4;i++){
+    const d=document.getElementById('quad-'+i);
+    if(d) d.style.pointerEvents='none';
+  }
+  document.getElementById('dart-svg-wrap').style.pointerEvents='none';
+
+  area._throwHandler=handleThrow;
+  area.addEventListener('pointerdown', area._throwHandler, {once:true});
+}
+function handleThrow(e){
+  if(S.phase!=='blind') return;
+  e.preventDefault();
+  exitBlindMode();
+  if(S.throwStyle==='random'){
+    // Use the pre-generated fair random point for this throw slot
+    const pt=S._randomThrows && S._randomThrows[S.throwIdx];
+    if(pt){ processThrow(pt.sx, pt.sy); }
+    else {
+      const p=randomDartPoint();
+      processThrow(p.sx, p.sy);
+    }
+  } else {
+    const area=document.getElementById('dart-area');
+    const rect=area.getBoundingClientRect();
+    processThrow(e.clientX-rect.left, e.clientY-rect.top);
+  }
+}
+function exitBlindMode(){
+  document.body.classList.remove('blind-mode');
+  document.getElementById('blind-inst').classList.remove('active');
+  for(let i=0;i<4;i++){
+    const d=document.getElementById('quad-'+i);
+    if(d) d.style.pointerEvents='auto';
+  }
+  document.getElementById('dart-svg-wrap').style.pointerEvents='auto';
+}
+
+// ─── THROW PROCESSING ────────────────────────────────────────
+function processThrow(sx,sy){
+  S.phase='result';
+  const ti=S.throwQueue[S.throwIdx];
+  const dx=sx-S.dartCX, dy=sy-S.dartCY;
+  const dist=Math.sqrt(dx*dx+dy*dy);
+  const R=S.dartR;
+
+  let result,isForfeit=false,who='';
+
+  if(dist<=R){
+    // Inside dart circle
+    if(S.mode==='vanilla'){
+      const RINGS=S.boardConfig.ringCount;
+      const ringFrac=dist/R;
+      const ringIdx=Math.min(RINGS-1,Math.floor(ringFrac*RINGS));
+      result=S.boardConfig.scores[ringIdx];
+    } else {
+      // Adventurous: find nearest seed in *pixel* space — exactly matches what was drawn
+      const seeds=S.boardConfig.seeds;
+      let bestI=0,bestD=Infinity;
+      seeds.forEach((s,i)=>{
+        // seed positions in pixel space: cx+s.x*R, cy+s.y*R
+        const spx=S.dartCX+s.x*R, spy=S.dartCY+s.y*R;
+        const d=(sx-spx)**2+(sy-spy)**2;
+        if(d<bestD){bestD=d;bestI=i;}
+      });
+      result=S.boardConfig.scores[bestI];
+    }
+    // dx/dy stored relative to SVG top-left (SVG viewBox: 0,0 = top-left of dart circle)
+    S.markers.push({inBg:false,dx:sx-S.dartCX+S.dartR,dy:sy-S.dartCY+S.dartR,color:TEAM_COLORS[ti]});
+  } else {
+    // Outside dart — check if it hits an action zone
+    const hitZone=findHitActionZone(sx,sy);
+    if(hitZone!==null){
+      isForfeit=true;
+      const action=ALL_ACTIONS[hitZone.actionIdx];
+      result=action.label;
+      who=action.teacher?'👩‍🏫 Teacher does it!':'';
+    } else {
+      // Missed everything — random action or 0 pts
+      if(S.actionZones.length>0){
+        isForfeit=true;
+        const randomZone=S.actionZones[Math.floor(Math.random()*S.actionZones.length)];
+        result=ALL_ACTIONS[randomZone.actionIdx].label+' (miss!)';
+        who='';
+      } else {
+        result=0;
+      }
+    }
+    S.markers.push({inBg:true,bx:sx,by:sy,color:TEAM_COLORS[ti]});
+  }
+
+  if(!isForfeit) S.scores[ti]+=result;
+  renderScoreStrip('dart-score-strip');
+  drawAll(true);
+  showResultPopup(ti,result,isForfeit,who);
+  renderDartBottom('afterthrow');
+}
+
+function findHitActionZone(sx,sy){
+  // The entire region triggers its action — just find which region was hit
+  if(S.actionZones.length===0) return null;
+  const regionIdx=getRegionForPoint(sx,sy);
+  return S.actionZones.find(z=>z.regionIdx===regionIdx)||null;
+}
+
+// ─── RESULT POPUP ────────────────────────────────────────────
+function showResultPopup(ti,result,isForfeit,who){
+  const p=document.getElementById('result-popup');
+  document.getElementById('rp-team').textContent=S.teams[ti];
+  document.getElementById('rp-team').style.color=TEAM_COLORS[ti];
+  document.getElementById('rp-who').textContent=who||'';
+  if(isForfeit){
+    document.getElementById('rp-value').textContent=result;
+    document.getElementById('rp-value').className='rp-value forfeit';
+    document.getElementById('rp-label').textContent='0 pts — do the action!';
+    p.style.borderColor='var(--rose)';
+  } else {
+    document.getElementById('rp-value').textContent=result+' pts';
+    document.getElementById('rp-value').className='rp-value';
+    document.getElementById('rp-label').textContent=result>=40?'🎯 Bullseye!':result>=20?'✨ Nice!':'👍 Fair enough!';
+    p.style.borderColor='var(--gold)';
+  }
+  p.classList.add('show');
+}
+function hideResultPopup(){document.getElementById('result-popup').classList.remove('show');}
+
+// ─── FLOW ────────────────────────────────────────────────────
+function updateThrowIndicator(){
+  const el=document.getElementById('throw-indicator');
+  const ti=S.throwQueue[S.throwIdx];
+  if(ti===undefined){el.textContent='All thrown!';return;}
+  el.innerHTML=`Throwing: <strong style="color:${TEAM_COLORS[ti]}">${S.teams[ti]}</strong>`;
+}
+function nextThrow(){
+  hideResultPopup();
+  S.throwIdx++;
+  S.markers=[];
+  updateThrowIndicator();
+  if(S.mode==='adventurous') S.boardConfig=generateBoardConfig();
+  shuffleActionZones();
+  drawAll(false);
+  positionOverlays(true);
+  renderDartBottom('waiting');
+  S.phase='covered';
+}
+
+function nextRound(){
+  hideResultPopup();
+  S.round++;
+  showScreen('question');
+  resetQuestionScreen();
+}
+
+function goSetup(){
+  clearInterval(S.timerInterval);S.timerRunning=false;
+  showScreen('setup');renderTeamInputs();
+}
+
+function showLeaderboard(){
+  // Sort teams by score
+  const ranked=S.teams.map((n,i)=>({name:n,score:S.scores[i],colorIdx:i}))
+    .sort((a,b)=>b.score-a.score);
+  const maxScore=Math.max(...ranked.map(r=>r.score),1);
+  document.getElementById('lb-list').innerHTML=ranked.map((r,i)=>{
+    const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+    const pct=Math.round((r.score/maxScore)*100);
+    return `<div class="lb-row rank-${i+1}" id="lb-row-${i}">
+      <div class="lb-bar" style="width:0%" id="lb-bar-${i}"></div>
+      <div class="lb-rank">${medal||i+1}</div>
+      <div class="lb-dot c-${r.colorIdx}"></div>
+      <div class="lb-name">${r.name}</div>
+      <div class="lb-score">${r.score}</div>
+    </div>`;
+  }).join('');
+  showScreen('leaderboard');
+  // Animate bars
+  setTimeout(()=>{
+    ranked.forEach((_,i)=>{
+      const pct=Math.round((ranked[i].score/maxScore)*100);
+      const bar=document.getElementById('lb-bar-'+i);
+      if(bar)bar.style.width=pct+'%';
+    });
+  },100);
+}
+
+// Override nextRound for last round — add leaderboard option
+function renderDartBottom(mode){
+  const bar=document.getElementById('dart-bottom');
+  if(mode==='waiting'){
+    bar.innerHTML=`<button class="ctrl-btn primary" onclick="revealDart()" style="font-size:14px;padding:11px 26px;">🎯 Reveal &amp; Throw!</button>`;
+  } else if(mode==='blind'){
+    bar.innerHTML='';
+  } else if(mode==='afterthrow'){
+    const rem=S.throwQueue.length-S.throwIdx-1;
+    const nextTI=S.throwQueue[S.throwIdx+1];
+    bar.innerHTML=rem>0
+      ?`<button class="ctrl-btn primary" onclick="nextThrow()" style="padding:10px 22px;">Next: ${S.teams[nextTI]} →</button>`
+      :`<div style="display:flex;gap:9px;">
+          <button class="ctrl-btn success" onclick="nextRound()" style="padding:10px 20px;">Next Round →</button>
+          <button class="ctrl-btn" onclick="showLeaderboard()" style="padding:10px 16px;">🏆 Leaderboard</button>
+        </div>`;
+  }
+}
+
+// ─── UTILS ───────────────────────────────────────────────────
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='dartboard'){
+    // Use double rAF to ensure the screen is fully laid out before measuring
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      computeLayout();
+      if(S._pendingBuildDart){
+        S._pendingBuildDart=false;
+        buildDartScreen();
+      } else {
+        positionOverlays(S.phase==='covered');
+        if(S.phase==='result'||S.phase==='blind') drawAll(true);
+        else if(S.phase==='covered') drawAll(false);
+      }
+    }));
+  }
+}
+function el(tag){return document.createElement(tag);}
+function elNS(tag){return document.createElementNS('http://www.w3.org/2000/svg',tag);}
+function shuffleArr(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+document.addEventListener('contextmenu',e=>e.preventDefault());
+window.addEventListener('resize',()=>{
+  if(document.getElementById('dartboard').classList.contains('active')){
+    computeLayout();
+    positionOverlays(S.phase==='covered');
+    drawAll(S.phase!=='covered' && S.phase!=='idle');
+  }
+});
+
+// ─── INIT ────────────────────────────────────────────────────
+renderTeamInputs();
+renderActionGrid();
+renderManualQList();
+</script>
+</body>
+</html>
