@@ -185,7 +185,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .q-badge{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--muted);}
 .q-nav-row{display:flex;align-items:center;gap:7px;}
 .q-nav-label{font-size:11px;color:var(--muted);white-space:nowrap;}
-textarea.q-textarea{width:100%;max-width:760px;background:transparent;border:none;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:clamp(22px,4vw,54px);text-align:center;resize:none;outline:none;line-height:1.2;caret-color:var(--accent);overflow-y:auto;max-height:140px;}
+textarea.q-textarea{width:100%;max-width:760px;background:transparent;border:none;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:clamp(16px,4vw,54px);text-align:center;resize:none;outline:none;line-height:1.2;caret-color:var(--accent);overflow-y:auto;max-height:220px;}
 textarea.q-textarea::placeholder{color:rgba(167,169,190,.2);}
 .answer-reveal-box{display:none;background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.25);border-radius:9px;padding:8px 18px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:clamp(14px,2.2vw,26px);color:var(--gold);max-width:700px;}
 .answer-reveal-box.shown{display:block;}
@@ -719,15 +719,31 @@ function setQMode(m,btn){
 function setOrder(o,btn){S.csvOrder=o;document.querySelectorAll('.order-btn').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');}
 
 // CSV
+function parseCSVLine(line){
+  const fields=[];
+  let cur='',inQuote=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"'){
+      if(inQuote&&line[i+1]==='"'){cur+='"';i++;} // escaped quote
+      else inQuote=!inQuote;
+    } else if(ch===','&&!inQuote){
+      fields.push(cur.trim());cur='';
+    } else {
+      cur+=ch;
+    }
+  }
+  fields.push(cur.trim());
+  return fields;
+}
 function loadCSV(e){
   const file=e.target.files[0];if(!file)return;
   const reader=new FileReader();
   reader.onload=ev=>{
     const lines=ev.target.result.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
     S.csvQuestions=lines.map(line=>{
-      const parts=line.match(/(".*?"|[^,]+)(?:,|$)/g)||[line];
-      const clean=parts.map(p=>p.replace(/^"|"$/g,'').replace(/,$/,'').trim());
-      return {q:clean[0]||'',a:clean[1]||''};
+      const fields=parseCSVLine(line);
+      return {q:fields[0]||'',a:fields[1]||''};
     }).filter(x=>x.q);
     const n=S.csvQuestions.length;
     document.getElementById('csv-zone').classList.add('loaded');
@@ -1553,9 +1569,18 @@ function nextThrow(){
 function nextRound(){
   hideResultPopup();
   S.round++;
-  if(S.questionOrder.length&&S.qIdx<S.questionOrder.length-1)S.qIdx++;
-  showScreen('question');
-  resetQuestionScreen();
+  if(S.questionOrder.length&&S.qIdx<S.questionOrder.length-1){
+    S.qIdx++;
+    showScreen('question');
+    resetQuestionScreen();
+  } else if(S.questionOrder.length&&S.qIdx>=S.questionOrder.length-1){
+    // No more questions — go straight to leaderboard
+    clearInterval(S.timerInterval);S.timerRunning=false;
+    showLeaderboard();
+  } else {
+    showScreen('question');
+    resetQuestionScreen();
+  }
 }
 
 function goSetup(){
@@ -1612,9 +1637,12 @@ function renderDartBottom(mode){
 // ─── UTILS ───────────────────────────────────────────────────
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  if(id==='dartboard'){
+    document.getElementById('dart-svg-wrap').style.visibility='hidden';
+    document.getElementById('dart-cover').style.visibility='hidden';
+  }
   document.getElementById(id).classList.add('active');
   if(id==='dartboard'){
-    // Use double rAF to ensure the screen is fully laid out before measuring
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
       computeLayout();
       if(S._pendingBuildDart){
@@ -1625,6 +1653,12 @@ function showScreen(id){
         if(S.phase==='result'||S.phase==='blind') drawAll(true);
         else if(S.phase==='covered') drawAll(false);
       }
+      // Cover is now positioned — restore visibility in the next frame
+      // so the browser paints cover-in-place before anything else shows
+      requestAnimationFrame(()=>{
+        document.getElementById('dart-svg-wrap').style.visibility='';
+        document.getElementById('dart-cover').style.visibility='';
+      });
     }));
   }
 }
