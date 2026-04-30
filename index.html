@@ -185,7 +185,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .q-badge{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--muted);}
 .q-nav-row{display:flex;align-items:center;gap:7px;}
 .q-nav-label{font-size:11px;color:var(--muted);white-space:nowrap;}
-textarea.q-textarea{width:100%;max-width:900px;background:transparent;border:none;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:clamp(16px,5vw,72px);text-align:center;resize:none;outline:none;line-height:1.2;caret-color:var(--accent);overflow-y:auto;max-height:30vh;flex-shrink:1;}
+textarea.q-textarea{width:100%;max-width:900px;background:transparent;border:none;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:clamp(16px,4.5vw,72px);text-align:center;resize:none;outline:none;line-height:1.2;caret-color:var(--accent);overflow:hidden;max-height:35vh;flex-shrink:1;}
 textarea.q-textarea::placeholder{color:rgba(167,169,190,.2);}
 .answer-reveal-box{display:none;background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.25);border-radius:9px;padding:8px 18px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:clamp(14px,2.5vw,32px);color:var(--gold);max-width:900px;flex-shrink:0;}
 .answer-reveal-box.shown{display:block;}
@@ -413,7 +413,7 @@ body.blind-mode .dart-bottom,body.blind-mode .top-bar{pointer-events:none;opacit
         <button class="t-btn" onclick="nextQ()">›</button>
       </div>
     </div>
-    <textarea class="q-textarea" id="q-textarea" placeholder="TYPE QUESTION HERE…" rows="2"></textarea>
+    <textarea class="q-textarea" id="q-textarea" placeholder="TYPE QUESTION HERE…" rows="2" oninput="scaleQFont()"></textarea>
     <div class="answer-reveal-box" id="answer-box">
       <div class="answer-pre">Answer</div>
       <div id="answer-text"></div>
@@ -777,11 +777,22 @@ function buildQuestionOrder(){
   S.questionOrder=order;
   S.qIdx=0;
 }
+function scaleQFont(){
+  const ta=document.getElementById('q-textarea');
+  const len=(ta.value||'').length;
+  // Shrink font progressively for longer questions
+  const size = len < 60  ? 'clamp(16px,4.5vw,72px)'
+              : len < 100 ? 'clamp(16px,3.5vw,54px)'
+              : len < 160 ? 'clamp(16px,2.8vw,40px)'
+              :              'clamp(16px,2.2vw,30px)';
+  ta.style.fontSize = size;
+}
 function loadCurrentQ(){
   if(!S.questionOrder.length)return;
   const item=S._activeQuestions[S.questionOrder[S.qIdx]];
   document.getElementById('q-textarea').value=item.q;
   document.getElementById('answer-input').value=item.a;
+  scaleQFont();
   updateQNav();
 }
 function updateQNav(){
