@@ -185,9 +185,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .q-badge{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--muted);}
 .q-nav-row{display:flex;align-items:center;gap:7px;}
 .q-nav-label{font-size:11px;color:var(--muted);white-space:nowrap;}
-textarea.q-textarea{width:100%;max-width:900px;background:transparent;border:none;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:clamp(16px,5vw,72px);text-align:center;resize:none;outline:none;line-height:1.2;caret-color:var(--accent);overflow-y:auto;max-height:40vh;}
+textarea.q-textarea{width:100%;max-width:900px;background:transparent;border:none;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:clamp(16px,5vw,72px);text-align:center;resize:none;outline:none;line-height:1.2;caret-color:var(--accent);overflow-y:auto;max-height:30vh;flex-shrink:1;}
 textarea.q-textarea::placeholder{color:rgba(167,169,190,.2);}
-.answer-reveal-box{display:none;background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.25);border-radius:9px;padding:8px 18px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:clamp(14px,3vw,38px);color:var(--gold);max-width:900px;}
+.answer-reveal-box{display:none;background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.25);border-radius:9px;padding:8px 18px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:clamp(14px,2.5vw,32px);color:var(--gold);max-width:900px;flex-shrink:0;}
 .answer-reveal-box.shown{display:block;}
 .answer-pre{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-family:'DM Sans',sans-serif;margin-bottom:2px;}
 .timer-block{display:flex;align-items:center;gap:10px;}
@@ -813,6 +813,7 @@ function startGame(){
 function resetQuestionScreen(){
   document.getElementById('round-badge').textContent='ROUND '+S.round;
   document.getElementById('answer-box').classList.remove('shown');
+  document.querySelector('.q-textarea').style.maxHeight=''; // restore
   S.correctTeams=[];
   renderScoreStrip('score-strip');
   renderCheckRow();
@@ -850,6 +851,8 @@ function revealAnswer(){
   const ans=document.getElementById('answer-input').value.trim();
   document.getElementById('answer-text').textContent=ans||'(no answer set)';
   document.getElementById('answer-box').classList.add('shown');
+  // Shrink question textarea to make room for the answer box
+  document.querySelector('.q-textarea').style.maxHeight='18vh';
 }
 
 // ─── TIMER ───────────────────────────────────────────────────
