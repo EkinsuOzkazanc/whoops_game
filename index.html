@@ -655,7 +655,7 @@ function renderActionGrid(){
         <span class="ac-icon">${ALL_ACTIONS[i].icon}</span>
         <input class="ac-label-input" id="acl-${i}" value="${ALL_ACTIONS[i].label}"
           onclick="event.stopPropagation()"
-          onchange="ALL_ACTIONS[${i}].label=this.value.toUpperCase().trim()||ALL_ACTIONS_BASE[${i}].label;this.value=ALL_ACTIONS[${i}].label;"
+          onchange="ALL_ACTIONS[${i}].label=this.value.trim()||ALL_ACTIONS_BASE[${i}].label;this.value=ALL_ACTIONS[${i}].label;"
           style="background:none;border:none;outline:none;color:inherit;font:inherit;width:100%;cursor:text;font-size:11px;"/>
         <span class="check-mark">✓</span>
       </div>`).join('');
