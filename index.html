@@ -251,8 +251,11 @@ select.t-select{background:var(--bg);color:var(--text);border:1px solid var(--bo
 .throw-indicator strong{color:var(--text);}
 .dart-bottom{padding:11px 20px;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:12px;flex-shrink:0;position:relative;z-index:2;}
 
-/* Blind mode lock */
-body.blind-mode .dart-bottom,body.blind-mode .top-bar{pointer-events:none;opacity:.15;}
+/* Stealth mode */
+#stealth-banner{position:absolute;top:0;left:0;right:0;text-align:center;padding:10px;background:linear-gradient(to bottom,rgba(0,0,0,.7),transparent);z-index:30;pointer-events:none;}
+#stealth-banner .sb-text{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.12em;color:var(--gold);}
+body.stealth-mode #dart-svg-wrap,body.stealth-mode #dart-cover{display:none;}
+body.stealth-mode .quad{display:none;}
 
 /* Blind instruction */
 #blind-inst{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:50;pointer-events:none;display:none;}
@@ -373,23 +376,11 @@ body.blind-mode .dart-bottom,body.blind-mode .top-bar{pointer-events:none;opacit
             <span class="mn">🧩 Adventurous</span>
             <span class="md">Puzzle patches, random scores</span>
           </button>
-        </div>
-      </div>
-
-      <!-- THROW STYLE -->
-      <div>
-        <div class="section-label">Throw Style</div>
-        <div class="mode-toggle">
-          <button class="mode-btn selected" id="ts-blind" onclick="selectThrowStyle('blind',this)">
-            <span class="mn">🙈 Blind Throw</span>
-            <span class="md">Eyes closed, touch the board</span>
-          </button>
-          <button class="mode-btn" id="ts-random" onclick="selectThrowStyle('random',this)">
-            <span class="mn">🎲 Random Throw</span>
-            <span class="md">One click — lands anywhere</span>
+          <button class="mode-btn" onclick="selectMode('stealth',this)">
+            <span class="mn">🕵️ Stealth</span>
+            <span class="md">Full-screen mystery — one touch reveals &amp; scores</span>
           </button>
         </div>
-        <div id="ts-hint" style="font-size:10px;color:var(--muted);margin-top:6px;text-align:center;display:none;">Fair: same score distribution for all teams each round.</div>
       </div>
 
       <button class="start-btn" onclick="startGame()">START GAME</button>
@@ -579,7 +570,7 @@ body.blind-mode .dart-bottom,body.blind-mode .top-bar{pointer-events:none;opacit
 <script>
 // ─── CONSTANTS ───────────────────────────────────────────────
 const TEAM_COLORS = ['#ff6b35','#06d6a0','#ffd166','#118ab2','#ef476f','#9b5de5'];
-const VANILLA_SCORES = [50,25,20,15,10,5];
+const VANILLA_SCORES = [50,25,20,15,10,5]; // index 0 = centre (bullseye), index 5 = outermost
 
 // ALL_ACTIONS: base definitions. Labels are overridable in setup via S.actionLabels.
 const ALL_ACTIONS_BASE = [
@@ -610,7 +601,7 @@ let S = {
   teams:['Team 1','Team 2','Team 3','Team 4'],
   scores:[0,0,0,0],
   mode:'vanilla',
-  throwStyle:'blind', // 'blind' | 'random'
+  throwStyle:'blind', // 'blind' | 'stealth'
   selectedActions:[], // indices into ALL_ACTIONS
   csvQuestions:[],
   csvOrder:'seq',
@@ -700,12 +691,12 @@ function randomPickActions(){
   updateActionCount();
 }
 
-function selectMode(m,btn){S.mode=m;document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');}
-function selectThrowStyle(s,btn){
-  S.throwStyle=s;
-  document.getElementById('ts-blind').classList.toggle('selected',s==='blind');
-  document.getElementById('ts-random').classList.toggle('selected',s==='random');
-  document.getElementById('ts-hint').style.display=s==='random'?'block':'none';
+function selectMode(m,btn){
+  S.mode=m;
+  // In vanilla/adventurous, always use blind throw; stealth handles its own touch logic
+  S.throwStyle= m==='stealth' ? 'stealth' : 'blind';
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
 }
 
 // Q mode
@@ -914,22 +905,21 @@ function confirmEndGame(){
 
 // ─── DART SCREEN ──────────────────────────────────────────────
 function buildDartScreen(){
-  initRoundScores(); // fix this round's score set before generating config
+  initRoundScores();
   S.boardConfig=generateBoardConfig();
   S.markers=[];
   computeLayout();
   shuffleActionZones();
-  // Pre-generate one random throw point per team slot for this round.
-  // All teams face the same pool of random landing spots (fair).
-  if(S.throwStyle==='random'){
-    S._randomThrows=S.throwQueue.map(()=>randomDartPoint());
-  }
   renderScoreStrip('dart-score-strip');
-  drawAll(false);
-  positionOverlays(true);
-  updateThrowIndicator();
-  renderDartBottom('waiting');
-  S.phase='covered';
+  if(S.throwStyle==='stealth'){
+    buildStealthScreen();
+  } else {
+    drawAll(false);
+    positionOverlays(true);
+    updateThrowIndicator();
+    renderDartBottom('waiting');
+    S.phase='covered';
+  }
 }
 
 // Generate a random throw point. Fixed 20% chance of action (background),
@@ -956,6 +946,294 @@ function randomDartPoint(){
   }
   // Fallback: safely inside circle
   return {sx:cx, sy:cy};
+}
+
+// ─── STEALTH MODE ─────────────────────────────────────────────
+// Full-screen Voronoi patchwork — no dart circle. Each patch is
+// hidden. First touch reveals that patch AND processes its result.
+function buildStealthScreen(){
+  const area=document.getElementById('dart-area');
+  const W=S.areaW, H=S.areaH;
+
+  // Remove any old stealth canvas/svg
+  area.querySelectorAll('.stealth-layer').forEach(el=>el.remove());
+  const old=document.getElementById('stealth-banner');
+  if(old)old.remove();
+
+  document.body.classList.add('stealth-mode');
+
+  // ── Generate Voronoi seeds across full area ──
+  const N=12; // number of patches
+  const seeds=[];
+  for(let i=0;i<N;i++){
+    let tries=0,ok=false;
+    while(!tries||(!ok&&tries<80)){
+      const x=Math.random()*W;
+      const y=Math.random()*H;
+      const tooClose=seeds.some(s=>(s.x-x)**2+(s.y-y)**2<(Math.min(W,H)*0.18)**2);
+      if(!tooClose){seeds.push({x,y});ok=true;}
+      tries++;
+    }
+    if(!ok&&seeds.length<i+1)seeds.push({x:Math.random()*W,y:Math.random()*H});
+  }
+
+  // ── Assign score or action to each patch ──
+  const scores=S.boardConfig.scores;
+  const ACTION_CHANCE=0.25;
+  S._stealthPatches=seeds.map(()=>{
+    if(Math.random()<ACTION_CHANCE&&S.actionZones.length>0){
+      const zone=S.actionZones[Math.floor(Math.random()*S.actionZones.length)];
+      return {type:'action',actionIdx:zone.actionIdx};
+    }
+    return {type:'score',score:scores[Math.floor(Math.random()*scores.length)]};
+  });
+
+  // ── Render Voronoi pixel map on offscreen canvas ──
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const CW=Math.round(W*dpr), CH=Math.round(H*dpr);
+  const offscreen=document.createElement('canvas');
+  offscreen.width=CW; offscreen.height=CH;
+  const ctx=offscreen.getContext('2d');
+
+  function hexRGB(h){const n=parseInt(h.slice(1),16);return[(n>>16)&255,(n>>8)&255,n&255];}
+
+  // Distinct muted dark colours — different enough to tell apart, dark enough to hide content
+  const hiddenColors=[
+    '#1a0d2e','#0d1a2e','#0d2e1a','#2e1a0d',
+    '#2e0d1a','#1a2e0d','#0d1e2e','#2e2a0d',
+    '#1e0d2e','#0d2e2a','#2e1e0d','#1a0d1e'
+  ];
+  const hiddenRgbs=hiddenColors.map(hexRGB);
+
+  // Bright palette for revealed patches
+  const revealColors=[
+    '#8b1a1a','#1a5c8b','#1a8b3c','#8b6d1a','#6b1a8b',
+    '#8b3d1a','#1a7a8b','#5c8b1a','#8b1a5c','#1a3c8b','#7a5c1a','#1a8b6b'
+  ];
+
+  const imgData=ctx.createImageData(CW,CH);
+  const data=imgData.data;
+
+  // patchMap[pixelIdx] = seed index — used for hit detection
+  S._stealthPixelMap=new Int16Array(CW*CH);
+
+  const seedsPx=seeds.map(s=>({px:s.x*dpr,py:s.y*dpr}));
+
+  const centX=new Float64Array(N);
+  const centY=new Float64Array(N);
+  const centCount=new Int32Array(N);
+
+  for(let py=0;py<CH;py++){
+    for(let px=0;px<CW;px++){
+      let bestI=0,bestD=Infinity;
+      for(let i=0;i<N;i++){
+        const dx=seedsPx[i].px-px, dy=seedsPx[i].py-py;
+        const d=dx*dx+dy*dy;
+        if(d<bestD){bestD=d;bestI=i;}
+      }
+      const idx=(py*CW+px)*4;
+      const rgb=hiddenRgbs[bestI%hiddenRgbs.length];
+      data[idx]=rgb[0];data[idx+1]=rgb[1];data[idx+2]=rgb[2];data[idx+3]=255;
+      S._stealthPixelMap[py*CW+px]=bestI;
+      centX[bestI]+=px/dpr; centY[bestI]+=py/dpr; centCount[bestI]++;
+    }
+  }
+
+  // Store centroids (logical px) for label placement
+  S._stealthCentroids=Array.from({length:N},(_,i)=>({
+    x:centCount[i]>0?centX[i]/centCount[i]:seeds[i].x,
+    y:centCount[i]>0?centY[i]/centCount[i]:seeds[i].y,
+  }));
+
+  // Draw subtle border lines
+  const borderData=ctx.createImageData(CW,CH);
+  borderData.data.set(imgData.data);
+  ctx.putImageData(imgData,0,0);
+  const bd=ctx.getImageData(0,0,CW,CH).data;
+  const borderImg=ctx.createImageData(CW,CH);
+  borderImg.data.set(bd);
+  for(let py=1;py<CH-1;py++){
+    for(let px=1;px<CW-1;px++){
+      const here=S._stealthPixelMap[py*CW+px];
+      const right=S._stealthPixelMap[py*CW+px+1];
+      const below=S._stealthPixelMap[(py+1)*CW+px];
+      if(here!==right||here!==below){
+        const i=(py*CW+px)*4;
+        borderImg.data[i]=0;borderImg.data[i+1]=0;borderImg.data[i+2]=0;borderImg.data[i+3]=255;
+      }
+    }
+  }
+  ctx.putImageData(borderImg,0,0);
+
+  // Scale down to display canvas
+  const display=document.createElement('canvas');
+  display.width=W; display.height=H;
+  display.className='stealth-layer';
+  display.style.cssText=`position:absolute;top:0;left:0;width:${W}px;height:${H}px;`;
+  const dctx=display.getContext('2d');
+  dctx.drawImage(offscreen,0,0,W,H);
+  area.appendChild(display);
+
+  // Store dpr for hit detection
+  S._stealthDpr=dpr;
+  S._stealthW=CW;
+
+  // Add ? labels at centroids (unrevealed)
+  const labelSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  labelSvg.setAttribute('width',W);labelSvg.setAttribute('height',H);
+  labelSvg.style.cssText=`position:absolute;top:0;left:0;pointer-events:none;`;
+  labelSvg.className='stealth-layer';
+  labelSvg.id='stealth-label-svg';
+
+  for(let i=0;i<N;i++){
+    const c=S._stealthCentroids[i];
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',c.x);t.setAttribute('y',c.y);
+    t.setAttribute('text-anchor','middle');t.setAttribute('dominant-baseline','middle');
+    t.setAttribute('font-family',"'Bebas Neue',sans-serif");
+    t.setAttribute('font-size',Math.max(28,Math.min(60,Math.min(W,H)*0.1)));
+    t.setAttribute('fill','rgba(255,255,255,0.18)');
+    t.setAttribute('id','stealth-qlabel-'+i);
+    t.textContent='?';
+    labelSvg.appendChild(t);
+  }
+  area.appendChild(labelSvg);
+
+  // Transparent click canvas on top — maps touch to patch
+  const clickCanvas=document.createElement('canvas');
+  clickCanvas.width=W; clickCanvas.height=H;
+  clickCanvas.className='stealth-layer';
+  clickCanvas.style.cssText=`position:absolute;top:0;left:0;width:${W}px;height:${H}px;cursor:pointer;opacity:0;`;
+  clickCanvas.addEventListener('pointerdown',handleStealthTouch,{once:true});
+  area.appendChild(clickCanvas);
+
+  // Throw banner
+  const banner=document.createElement('div');
+  banner.id='stealth-banner';
+  banner.innerHTML=`<div class="sb-text" id="stealth-banner-text"></div>`;
+  area.appendChild(banner);
+
+  // Store revealed state per patch
+  S._stealthRevealed=new Array(N).fill(false);
+  S._stealthRevealCanvas=offscreen;
+  S._stealthRevealColors=revealColors;
+  S._stealthSeeds=seeds;
+  S._stealthCW=CW; S._stealthCH=CH;
+  S._stealthDisplayCanvas=display;
+  S._stealthDisplayCtx=dctx;
+
+  updateThrowIndicator();
+  updateStealthBanner();
+  renderDartBottom('waiting-stealth');
+  S.phase='stealth-waiting';
+}
+
+function updateStealthBanner(){
+  const el=document.getElementById('stealth-banner-text');
+  if(!el)return;
+  const ti=S.throwQueue[S.throwIdx];
+  if(ti===undefined){el.textContent='';return;}
+  el.textContent=(S.teams[ti]||'Team').toUpperCase()+' — TOUCH ANYWHERE!';
+}
+
+function handleStealthTouch(e){
+  if(S.phase!=='stealth-waiting')return;
+  e.preventDefault();
+  S.phase='result';
+
+  const area=document.getElementById('dart-area');
+  const rect=area.getBoundingClientRect();
+  const lx=e.clientX-rect.left;
+  const ly=e.clientY-rect.top;
+
+  // Map logical click to pixel map
+  const dpr=S._stealthDpr;
+  const px=Math.round(lx*dpr);
+  const py=Math.round(ly*dpr);
+  const CW=S._stealthCW;
+  const CH=S._stealthCH;
+  const pxClamped=Math.max(0,Math.min(CW-1,px));
+  const pyClamped=Math.max(0,Math.min(CH-1,py));
+  const patchIdx=S._stealthPixelMap[pyClamped*CW+pxClamped];
+
+  // Reveal: redraw this patch in its colour
+  _stealthRevealPatch(patchIdx);
+
+  // Process result
+  const ti=S.throwQueue[S.throwIdx];
+  const patch=S._stealthPatches[patchIdx];
+  let result,isForfeit=false,who='';
+  if(patch.type==='action'){
+    isForfeit=true;
+    const action=ALL_ACTIONS[patch.actionIdx];
+    result=action.label;
+    who=action.group==='teacher'?'👩‍🏫 Teacher does it!':'';
+  } else {
+    result=patch.score;
+    S.scores[ti]+=result;
+  }
+
+  renderScoreStrip('dart-score-strip');
+  showResultPopup(ti,result,isForfeit,who);
+  renderDartBottom('afterthrow');
+}
+
+function _stealthRevealPatch(patchIdx){
+  const CW=S._stealthCW, CH=S._stealthCH;
+  const dpr=S._stealthDpr;
+  const W=S.areaW, H=S.areaH;
+
+  function hexRGB(h){const n=parseInt(h.slice(1),16);return[(n>>16)&255,(n>>8)&255,n&255];}
+  const patch=S._stealthPatches[patchIdx];
+  let rgb;
+  if(patch.type==='action'){
+    const action=ALL_ACTIONS[patch.actionIdx];
+    rgb=hexRGB(action.color);
+  } else {
+    rgb=hexRGB(S._stealthRevealColors[patchIdx%S._stealthRevealColors.length]);
+  }
+
+  // Paint pixels of this patch on the offscreen canvas
+  const offCtx=S._stealthRevealCanvas.getContext('2d');
+  const imgData=offCtx.getImageData(0,0,CW,CH);
+  const data=imgData.data;
+  for(let py=0;py<CH;py++){
+    for(let px=0;px<CW;px++){
+      if(S._stealthPixelMap[py*CW+px]===patchIdx){
+        const i=(py*CW+px)*4;
+        data[i]=rgb[0];data[i+1]=rgb[1];data[i+2]=rgb[2];data[i+3]=255;
+      }
+    }
+  }
+  offCtx.putImageData(imgData,0,0);
+  // Redraw to display canvas
+  S._stealthDisplayCtx.drawImage(S._stealthRevealCanvas,0,W,W,H);
+  S._stealthDisplayCtx.clearRect(0,0,W,H);
+  S._stealthDisplayCtx.drawImage(S._stealthRevealCanvas,0,0,W,H);
+
+  // Replace ? label with score/action label
+  const qLabel=document.getElementById('stealth-qlabel-'+patchIdx);
+  if(qLabel){
+    const c=S._stealthCentroids[patchIdx];
+    const fsize=Math.max(24,Math.min(52,Math.min(W,H)*0.09));
+    if(patch.type==='action'){
+      const action=ALL_ACTIONS[patch.actionIdx];
+      qLabel.setAttribute('font-size',fsize*0.55);
+      qLabel.setAttribute('fill','#ffffff');
+      qLabel.textContent=action.icon+' '+action.label;
+    } else {
+      qLabel.setAttribute('font-size',fsize);
+      qLabel.setAttribute('fill','#ffd166');
+      qLabel.textContent=patch.score;
+    }
+  }
+}
+
+function exitStealthMode(){
+  document.body.classList.remove('stealth-mode');
+  document.getElementById('dart-area').querySelectorAll('.stealth-layer').forEach(el=>el.remove());
+  const banner=document.getElementById('stealth-banner');
+  if(banner)banner.remove();
 }
 
 function computeLayout(){
@@ -1368,10 +1646,10 @@ function initRoundScores(){
 
 function generateBoardConfig(){
   const RINGS=6;
-  // Use the round's fixed score set — same values for every team this round
+  // For vanilla: scores are fixed (outermost→centre), never shuffled
+  // For adventurous: shuffle which patch gets which score each throw
   const scores=S.roundScores?[...S.roundScores]:[...VANILLA_SCORES];
-  // Shuffle which patch gets which score (positions change, values don't)
-  const shuffledScores=shuffleArr([...scores]);
+  const shuffledScores=S.mode==='vanilla'?scores:shuffleArr([...scores]);
 
   // Generate fresh random seeds for patch positions
   const seeds=[];
@@ -1448,19 +1726,9 @@ function handleThrow(e){
   if(S.phase!=='blind') return;
   e.preventDefault();
   exitBlindMode();
-  if(S.throwStyle==='random'){
-    // Use the pre-generated fair random point for this throw slot
-    const pt=S._randomThrows && S._randomThrows[S.throwIdx];
-    if(pt){ processThrow(pt.sx, pt.sy); }
-    else {
-      const p=randomDartPoint();
-      processThrow(p.sx, p.sy);
-    }
-  } else {
-    const area=document.getElementById('dart-area');
-    const rect=area.getBoundingClientRect();
-    processThrow(e.clientX-rect.left, e.clientY-rect.top);
-  }
+  const area=document.getElementById('dart-area');
+  const rect=area.getBoundingClientRect();
+  processThrow(e.clientX-rect.left, e.clientY-rect.top);
 }
 function exitBlindMode(){
   document.body.classList.remove('blind-mode');
@@ -1572,6 +1840,13 @@ function nextThrow(){
   S.throwIdx++;
   S.markers=[];
   updateThrowIndicator();
+  if(S.throwStyle==='stealth'){
+    exitStealthMode();
+    computeLayout();
+    shuffleActionZones();
+    buildStealthScreen();
+    return;
+  }
   if(S.mode==='adventurous') S.boardConfig=generateBoardConfig();
   shuffleActionZones();
   drawAll(false);
@@ -1582,6 +1857,7 @@ function nextThrow(){
 
 function nextRound(){
   hideResultPopup();
+  if(S.throwStyle==='stealth') exitStealthMode();
   S.round++;
   if(S.questionOrder.length&&S.qIdx<S.questionOrder.length-1){
     S.qIdx++;
@@ -1599,6 +1875,7 @@ function nextRound(){
 
 function goSetup(){
   clearInterval(S.timerInterval);S.timerRunning=false;
+  if(S.throwStyle==='stealth') exitStealthMode();
   showScreen('setup');renderTeamInputs();
 }
 
@@ -1629,11 +1906,12 @@ function showLeaderboard(){
   },100);
 }
 
-// Override nextRound for last round — add leaderboard option
 function renderDartBottom(mode){
   const bar=document.getElementById('dart-bottom');
   if(mode==='waiting'){
     bar.innerHTML=`<button class="ctrl-btn primary" onclick="revealDart()" style="font-size:14px;padding:11px 26px;">🎯 Reveal &amp; Throw!</button>`;
+  } else if(mode==='waiting-stealth'){
+    bar.innerHTML=''; // no button — touch anywhere on screen
   } else if(mode==='blind'){
     bar.innerHTML='';
   } else if(mode==='afterthrow'){
